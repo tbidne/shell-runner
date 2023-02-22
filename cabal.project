@@ -1,4 +1,4 @@
-index-state: 2023-02-28T23:38:10Z
+index-state: 2023-03-07T00:00:00Z
 
 packages: .
 
@@ -23,16 +23,19 @@ source-repository-package
     type: git
     location: https://github.com/tbidne/algebra-simple.git
     tag: 2c8a79e8d3bf67c99e4851c557bf68a44c512307
+    --sha256: sha256-hcFAqLXp7N2nE3FRaxjmZ9eRu9k3AiFEMZMgi76XhZM
 
 source-repository-package
     type: git
     location: https://github.com/tbidne/bounds.git
     tag: 004f03aec46f29069fd0bf5115a384cd2b3141b3
+    --sha256: sha256-CptBUtBlMGhmq2TnCAEAF3U4KMMeVNT5A1wpzhwLQs4=
 
 source-repository-package
     type: git
     location: https://github.com/tbidne/byte-types.git
     tag: be3e764d76c530fd3641c133ed2d53adfc8f046d
+    --sha256: sha256-h3/RrhmDcIDzpD68Yd9G0rfdUhFieKrKQmQ6T9czGto=
 
 source-repository-package
     type: git
@@ -50,13 +53,16 @@ source-repository-package
       effects-terminal
       effects-thread
       effects-typed-process
+    --sha256: sha256-3N/xwbHBalmm2sjkCgWNQLLDXlDtd56kU5HgVVEmuyg=
 
 source-repository-package
     type: git
     location: https://github.com/tbidne/relative-time.git
     tag: 3bd5549074da8b6dba1660e6d01f92812cefb9c2
+    --sha256: sha256-jZC9KLsxJwlxOvTyboMo8CCe4rHOoF52uVHk2W/Lsok=
 
 source-repository-package
     type: git
     location: https://github.com/tbidne/smart-math.git
     tag: 1b84af8a57a27a8919f73d3b5376c26c120410b6
+    --sha256: sha256-1ksAaojP5dnSdPFPnNCgDN7s5AIgql19rNjHJiieV+4=

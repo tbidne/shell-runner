@@ -16,6 +16,9 @@ description:
 category:           Shell scripting, Utils, Concurrency
 extra-source-files:
   CHANGELOG.md
+  examples/bashrc
+  examples/config.toml
+  examples/default.toml
   README.md
 
 source-repository head
