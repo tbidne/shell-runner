@@ -28,27 +28,31 @@
               inherit index-state;
               src = ./.;
               compiler-nix-name = "ghc944";
-              shell.tools =
-                let
-                  withIdx = { inherit index-state; };
-                in
-                {
-                  cabal = withIdx;
-                  ghcid = withIdx;
+              shell.tools = {
+                cabal = { inherit index-state; version = "latest"; };
+                ghcid = { inherit index-state; version = "latest"; };
 
-                  # https://github.com/haskell/haskell-language-server/issues/3427
-                  haskell-language-server = {
-                    inherit index-state;
-                    version = "1.9.0.0";
-                  };
+                # https://github.com/haskell/haskell-language-server/issues/3427
+                haskell-language-server = {
+                  inherit index-state;
+                  version = "1.9.0.0";
                 };
+              };
             };
         })
       ];
+      # Aha! This fails: nix build "nixpkgs#pkgsCross.x86_64-darwin.hello"
+      # See:
+      #
+      # https://github.com/NixOS/nixpkgs/issues/177557
+      # https://github.com/NixOS/nixpkgs/issues/165804
+      # https://github.com/NixOS/nixpkgs/issues/147084
+      #
+      # We cannot compile to darwin from linux :-(
       pkgs = import nixpkgs { inherit system overlays; inherit (haskellNix) config; };
       flake = pkgs.shrunProject.flake {
         # This adds support for `nix build .#js-unknown-ghcjs:hello:exe:hello`
-        # crossPlatforms = p: [p.ghcjs];
+        crossPlatforms = p: [p.x86_64-darwin];
         #crossPlatforms = p: p.musl64;
       };
     in
