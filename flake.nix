@@ -17,7 +17,7 @@
     , nixpkgs
     , self
     }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
+    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
     let
       index-state = "2023-03-07T00:00:00Z";
       overlays = [
@@ -51,13 +51,13 @@
       # We cannot compile to darwin from linux :-(
       pkgs = import nixpkgs { inherit system overlays; inherit (haskellNix) config; };
       flake = pkgs.shrunProject.flake {
-        # This adds support for `nix build .#js-unknown-ghcjs:hello:exe:hello`
-        crossPlatforms = p: [p.x86_64-darwin];
-        #crossPlatforms = p: p.musl64;
+        crossPlatforms = p: [p.mingwW64];
       };
     in
     flake // {
       packages.default = flake.packages."shrun:exe:shrun";
+      # fwiw this does not compile on my machine
+      packages.windows64 = flake.packages."x86_64-w64-mingw32:shrun:exe:shrun";
     });
   nixConfig = {
     extra-substituters = [
