@@ -21,7 +21,7 @@ module Shrun.Logging.Formatting
 where
 
 import Data.Text qualified as T
-import Effects.Time (getSystemTimeString)
+import Effectful.Time.Dynamic (getSystemTimeString)
 import Shrun.Configuration.Data.CommonLogging.KeyHideSwitch
   ( KeyHideSwitch (KeyHideOff),
   )
@@ -96,12 +96,12 @@ maybeApply = maybe id
 -- | Formats a 'Log' into a 'FileLog'. Applies prefix and timestamp.
 formatFileLog ::
   ( HasCallStack,
-    MonadTime m
+    Time :> es
   ) =>
   KeyHideSwitch ->
   FileLoggingEnv ->
   Log ->
-  m FileLog
+  Eff es FileLog
 formatFileLog keyHide fileLogging log = do
   currTime <- getSystemTimeString
   let timestamp = brackets False (pack currTime)
@@ -124,7 +124,6 @@ formatFileLog keyHide fileLogging log = do
           ]
 
   pure $ UnsafeFileLog withTimestamp
-{-# INLINEABLE formatFileLog #-}
 
 -- | Core formatting, shared by console and file logs. Basic idea:
 --

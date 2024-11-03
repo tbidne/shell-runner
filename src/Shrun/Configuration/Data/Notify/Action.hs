@@ -35,7 +35,6 @@ parseNotifyAction getTxt =
           "notify action"
           notifyActionStr
           (unpack bad)
-{-# INLINEABLE parseNotifyAction #-}
 
 -- | Available 'NotifyAction' strings.
 notifyActionStr :: (IsString a) => a

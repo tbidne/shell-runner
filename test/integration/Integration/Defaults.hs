@@ -5,6 +5,7 @@
 
 module Integration.Defaults (specs) where
 
+import Data.IORef qualified as IORef
 import Integration.Prelude
 import Integration.Utils
   ( CompareField (MkCompareField),
@@ -154,11 +155,11 @@ defaultEnv = testPropertyNamed desc "defaultEnv"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
 
     makeConfigAndAssertEq ["cmd"] (`runNoConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     ["No default config found at: './config.toml'"] === logs
   where
     desc = "No arguments and empty config path should return default Env"
@@ -169,10 +170,10 @@ usesDefaultConfigFile = testPropertyNamed desc "usesDefaultConfigFile"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
     makeConfigAndAssertEq ["cmd1"] (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "No arguments should use config from default file"
@@ -234,12 +235,12 @@ cliOverridesConfigFile testArgs = testPropertyNamed desc "cliOverridesConfigFile
   $ property
   $ do
     logPath <- liftIO $ (</> [osp|cli-log|]) . view #workingTmpDir <$> testArgs
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
     let logPathStr = unsafeDecode logPath
 
     makeConfigAndAssertEq (args logPathStr) (`runConfigIO` logsRef) (expected logPath)
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "CLI args overrides config file"
@@ -344,11 +345,11 @@ cliOverridesConfigFileCmdLog = testPropertyNamed desc "cliOverridesConfigFileCmd
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
 
     makeConfigAndAssertFieldEq args (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "CLI overrides config file command-log fields even when CLI --console-log-command is not specified"
@@ -371,11 +372,11 @@ cliOverridesConfigFileFileLog = testPropertyNamed desc "cliOverridesConfigFileFi
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
 
     makeConfigAndAssertFieldEq args (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "CLI overrides config file file-log fields even when CLI --file-log is not specified"
@@ -410,12 +411,12 @@ fileLogStripControlDefaultsAll = testPropertyNamed desc "fileLogStripControlDefa
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
 
     -- Test that no toml defaults to All
     makeConfigAndAssertFieldEq args1 (`runNoConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     ["No default config found at: './config.toml'"] === logs
 
     -- Test that with toml defaults to All
@@ -445,10 +446,10 @@ ignoresDefaultConfigFile = testPropertyNamed desc "ignoresDefaultConfigFile"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
     makeConfigAndAssertEq ["--no-config", "cmd"] (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "--no-config should ignore config file"
@@ -459,11 +460,11 @@ noXOverridesToml = testPropertyNamed desc "noXOverridesToml"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
 
     makeConfigAndAssertEq args (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "--no-x disables toml options"
@@ -498,11 +499,11 @@ noXOverridesArgs = testPropertyNamed desc "noXOverridesArgs"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
 
     makeConfigAndAssertEq args (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "--no-x disables args"

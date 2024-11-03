@@ -4,8 +4,9 @@ module Main (main) where
 
 import Bench.Prelude
 import Control.DeepSeq (force)
-import Effects.FileSystem.PathReader qualified as RDir
-import Effects.FileSystem.PathWriter qualified as WDir
+import Effectful.FileSystem.PathReader.Static qualified as PR
+import Effectful.FileSystem.PathWriter.Static qualified as PW
+import Effectful.Terminal.Static qualified as Term
 import FileSystem.OsPath (unsafeDecode)
 import Shrun.Prelude hiding (IO)
 import System.Environment.Guard (ExpectEnv (ExpectEnvSet), guardOrElse')
@@ -64,19 +65,39 @@ bashLoop :: String -> String
 bashLoop bound = "for i in {1.." ++ bound ++ "}; do echo ${i}; done"
 
 setup :: IO OsPath
-setup = do
+setup = runBenchEff $ do
   testDir <-
     (\tmp -> tmp </> [osp|shrun|] </> [osp|bench|])
-      <$> RDir.getTemporaryDirectory
-  WDir.createDirectoryIfMissing True testDir
+      <$> PR.getTemporaryDirectory
+  PW.createDirectoryIfMissing True testDir
   pure testDir
 
 teardown :: OsPath -> IO ()
 teardown testDir = guardOrElse' "NO_CLEANUP" ExpectEnvSet doNothing cleanup
   where
-    cleanup = WDir.removePathForcibly testDir
+    cleanup = runBenchEff $ PW.removePathForcibly testDir
     doNothing =
-      putStrLn
+      runBenchEff
+        $ Term.putStrLn
         $ "*** Not cleaning up tmp dir: '"
         <> decodeLenient testDir
         <> "'"
+
+runBenchEff ::
+  (HasCallStack, MonadIO m) =>
+  Eff
+    [ FileWriter,
+      Term.Terminal,
+      PW.PathWriter,
+      PR.PathReader,
+      IOE
+    ]
+    a ->
+  m a
+runBenchEff =
+  liftIO
+    . runEff
+    . PR.runPathReader
+    . PW.runPathWriter
+    . Term.runTerminal
+    . runFileWriter

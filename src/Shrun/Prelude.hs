@@ -46,6 +46,8 @@ module Shrun.Prelude
 
     -- * Debug Utils
     todo,
+    unimpl,
+    unimplWith,
     traceFile,
     traceFileLine,
 
@@ -71,6 +73,7 @@ import Control.Exception.Utils as X
   ( TextException,
     catchSync,
     exitFailure,
+    throwText,
     trySync,
   )
 import Control.Monad as X
@@ -97,11 +100,6 @@ import Control.Monad.Catch as X
   )
 import Control.Monad.Fail as X (MonadFail (fail))
 import Control.Monad.IO.Class as X (MonadIO (liftIO))
-import Control.Monad.Reader as X
-  ( MonadReader (ask, local),
-    ReaderT (runReaderT),
-    asks,
-  )
 import Control.Monad.Trans as X (MonadTrans (lift))
 import Data.Bifunctor as X (Bifunctor)
 import Data.Bits (Bits, toIntegralSized)
@@ -157,71 +155,112 @@ import Data.Tuple.Experimental as X (Tuple2, Tuple3, Tuple4)
 import Data.List.NonEmpty qualified as NE
 import Data.Type.Equality as X (type (~))
 import Data.Void as X (Void, absurd)
-import Effects.Concurrent.Async as X (MonadAsync)
-import Effects.Concurrent.STM as X
-  ( MonadSTM,
-    TBQueue,
-    TVar,
+import Effectful as X
+  ( Dispatch (Dynamic),
+    DispatchOf,
+    Eff,
+    Effect,
+    IOE,
+    runEff,
+    runPureEff,
+    (:>),
+  )
+import Effectful.Concurrent as X (Concurrent, runConcurrent)
+import Effectful.Concurrent.STM.TBQueue.Static as X
+  ( TBQueue,
     flushTBQueueA,
-    modifyTVarA',
     newTBQueueA,
-    newTVarA,
     readTBQueueA,
-    readTVarA,
     writeTBQueueA,
+  )
+import Effectful.Concurrent.STM.TVar.Static as X
+  ( TVar,
+    modifyTVarA',
+    newTVarA,
+    readTVarA,
     writeTVarA,
   )
-import Effects.Concurrent.Thread as X (MonadThread)
-import Effects.FileSystem.FileReader as X
-  ( MonadFileReader,
+import Effectful.Dispatch.Dynamic as X
+  ( interpret,
+    interpret_,
+    localSeqUnliftIO,
+    reinterpret,
+    reinterpret_,
+    send,
+  )
+import Effectful.Environment as X (Environment, runEnvironment, withArgs)
+import Effectful.FileSystem.FileReader.Static as X
+  ( FileReader,
     decodeUtf8Lenient,
     readFileUtf8Lenient,
     readFileUtf8ThrowM,
+    runFileReader,
   )
-import Effects.FileSystem.FileWriter as X
-  ( MonadFileWriter,
+import Effectful.FileSystem.FileWriter.Static as X
+  ( FileWriter,
     appendFileUtf8,
+    runFileWriter,
     writeFileUtf8,
   )
-import Effects.FileSystem.HandleReader as X (MonadHandleReader)
-import Effects.FileSystem.HandleWriter as X
-  ( MonadHandleWriter (hClose, hFlush, openBinaryFile),
-    hPutUtf8,
+import Effectful.FileSystem.HandleReader.Static as X
+  ( HandleReader,
+    runHandleReader,
   )
-import Effects.FileSystem.PathReader as X
-  ( MonadPathReader (doesDirectoryExist, doesFileExist, getFileSize),
+import Effectful.FileSystem.HandleWriter.Static as X
+  ( HandleWriter,
+    hClose,
+    hFlush,
+    hPutUtf8,
+    openBinaryFile,
+    runHandleWriter,
+  )
+import Effectful.FileSystem.PathReader.Dynamic as X
+  ( PathReader,
+    doesDirectoryExist,
+    doesFileExist,
+    getFileSize,
     getXdgConfig,
     getXdgState,
+    runPathReader,
   )
-import Effects.FileSystem.PathWriter as X
-  ( MonadPathWriter,
+import Effectful.FileSystem.PathWriter.Static as X
+  ( PathWriter,
     removeDirectoryIfExists,
     removeFile,
     removeFileIfExists,
     removeFileIfExists_,
+    runPathWriter,
   )
-import Effects.IORef as X
+import Effectful.IORef.Static as X
   ( IORef,
-    MonadIORef
-      ( atomicModifyIORef',
-        modifyIORef',
-        newIORef,
-        readIORef,
-        writeIORef
-      ),
+    IORefE,
+    atomicModifyIORef',
+    modifyIORef',
+    newIORef,
+    readIORef,
+    runIORef,
+    writeIORef,
   )
-import Effects.Optparse as X (MonadOptparse (execParser))
-import Effects.Process.Typed as X (MonadTypedProcess, Process)
-import Effects.System.Environment as X (MonadEnv (withArgs))
-import Effects.System.Terminal as X
-  ( MonadTerminal,
+import Effectful.Optparse.Static as X (Optparse, execParser, runOptparse)
+import Effectful.Process.Typed as X (Process, TypedProcess, runTypedProcess)
+import Effectful.Reader.Static as X (Reader, ask, asks, runReader)
+import Effectful.Terminal.Dynamic as X
+  ( Terminal,
     putStr,
     putStrLn,
     putText,
     putTextLn,
+    runTerminal,
   )
-import Effects.Time as X (MonadTime)
-import FileSystem.OsPath as X (OsPath, decodeLenient, osp, (</>))
+import Effectful.Time.Dynamic as X (Time, runTime)
+import FileSystem.OsPath as X
+  ( OsPath,
+    decodeLenient,
+    encodeThrowM,
+    osp,
+    ospPathSep,
+    (</>),
+  )
 import FileSystem.OsPath qualified as OsPath
 import FileSystem.UTF8 as X (decodeUtf8)
 import GHC.Enum as X (Bounded (maxBound, minBound), Enum (toEnum))
@@ -283,6 +322,7 @@ import Optics.Core.Extras as X (is)
 import System.Console.Regions as X (ConsoleRegion, RegionLayout (Linear))
 import System.Exit as X (ExitCode (ExitFailure, ExitSuccess))
 import System.IO as X (FilePath, Handle, IO, IOMode (AppendMode, WriteMode), print)
+import System.IO qualified as IO
 import System.IO.Unsafe (unsafePerformIO)
 import TOML as X
   ( DecodeTOML (tomlDecoder),
@@ -331,7 +371,6 @@ headMaybe = foldr (\x _ -> Just x) Nothing
 -- | From foldable.
 fromFoldable :: (Foldable f) => a -> f a -> a
 fromFoldable x = fromMaybe x . headMaybe
-{-# INLINEABLE fromFoldable #-}
 
 -- | Lifted fmap.
 --
@@ -422,10 +461,29 @@ todo :: forall {r :: RuntimeRep} (a :: TYPE r). (HasCallStack) => a
 todo = raise# (errorCallWithCallStackException "Prelude.todo: not yet implemented" ?callStack)
 {-# WARNING todo "todo remains in code" #-}
 
+unimpl :: forall {r :: RuntimeRep} (a :: TYPE r). (HasCallStack) => a
+unimpl =
+  raise#
+    ( errorCallWithCallStackException
+        "Prelude.unimpl: intentionally unimplemented"
+        ?callStack
+    )
+
+unimplWith :: forall {r :: RuntimeRep} (a :: TYPE r). (HasCallStack) => String -> a
+unimplWith str =
+  raise#
+    ( errorCallWithCallStackException
+        ("Prelude.unimplWith: intentionally unimplemented: " ++ str)
+        ?callStack
+    )
+
 traceFile :: FilePath -> Text -> a -> a
 traceFile path txt x = writeFn `seq` x
   where
-    io = appendFileUtf8 (OsPath.unsafeEncode path) txt
+    io =
+      runEff $
+        runFileWriter $
+          appendFileUtf8 (OsPath.unsafeEncode path) txt
     writeFn = unsafePerformIO io
 
 traceFileLine :: FilePath -> Text -> a -> a
@@ -439,7 +497,7 @@ setUncaughtExceptionHandlerDisplay =
       Just ExitSuccess -> pure ()
       -- for command failures
       Just (ExitFailure _) -> pure ()
-      Nothing -> putStrLn $ displayException ex
+      Nothing -> IO.putStrLn $ displayException ex
 
 onJust :: b -> Maybe a -> (a -> b) -> b
 onJust x m f = maybe x f m

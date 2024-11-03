@@ -47,7 +47,6 @@ parseFileSizeMode getTxt = do
       case U.parseByteText byteTxt of
         Right b -> pure $ cons b
         Left err -> fail $ "Could not parse --file-log-size-mode size: " <> unpack err
-{-# INLINEABLE parseFileSizeMode #-}
 
 instance Default FileSizeMode where
   def = FileSizeModeWarn $ convert (Proxy @B) defBytes

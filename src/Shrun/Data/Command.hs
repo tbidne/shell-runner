@@ -12,8 +12,8 @@ where
 import Data.Hashable (Hashable)
 import Data.String (IsString (fromString))
 import Data.Text qualified as T
-import Effects.Process.Typed (ProcessConfig)
-import Effects.Process.Typed qualified as P
+import Effectful.Process.Typed (ProcessConfig)
+import Effectful.Process.Typed qualified as P
 import Shrun.Prelude
 
 -- $setup

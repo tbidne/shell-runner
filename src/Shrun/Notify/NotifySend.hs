@@ -6,7 +6,7 @@ where
 
 import DBus.Notify (UrgencyLevel (Critical, Low, Normal))
 import Data.Text qualified as T
-import Effects.Process.Typed qualified as P
+import Effectful.Process.Typed qualified as P
 import Shrun.Configuration.Data.Notify.System (NotifySystemP (NotifySend))
 import Shrun.Configuration.Data.Notify.Timeout
   ( NotifyTimeout
@@ -14,7 +14,7 @@ import Shrun.Configuration.Data.Notify.Timeout
         NotifyTimeoutSeconds
       ),
   )
-import Shrun.Notify.MonadNotify
+import Shrun.Notify.Effect
   ( NotifyException (MkNotifyException),
     ShrunNote,
     exitFailureToStderr,
@@ -22,23 +22,23 @@ import Shrun.Notify.MonadNotify
 import Shrun.Prelude
 import Shrun.Utils qualified as Utils
 
+-- FIXME: Test the lack of HasCallStack here.
+-- Also notifyNotifySend should probably throw for OSX.
+
 notifyNotifySend ::
-  ( HasCallStack,
-    MonadTypedProcess m
+  ( TypedProcess :> es
   ) =>
   ShrunNote ->
-  m (Maybe NotifyException)
+  Eff es (Maybe NotifyException)
 notifyNotifySend note =
   notify (shrunToNotifySend note) <<&>> \stderr ->
     MkNotifyException note NotifySend (decodeUtf8Lenient stderr)
   where
-    notify :: (HasCallStack, MonadTypedProcess m) => Text -> m (Maybe ByteString)
     notify =
       fmap exitFailureToStderr
         . P.readProcessStderr
         . P.shell
         . T.unpack
-{-# INLINEABLE notifyNotifySend #-}
 
 shrunToNotifySend :: ShrunNote -> Text
 shrunToNotifySend shrunNote = txt

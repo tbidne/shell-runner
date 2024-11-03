@@ -18,18 +18,17 @@ import Shrun.Configuration.Env.Types
     HasNotifyConfig,
     HasTimeout,
   )
-import Shrun.Logging.MonadRegionLogger
-  ( MonadRegionLogger
-      ( Region,
-        displayRegions,
-        logGlobal,
-        logRegion,
-        withRegion
+import Shrun.Logging.RegionLogger
+  ( RegionLogger
+      ( DisplayRegions,
+        LogGlobal,
+        LogRegion,
+        WithRegion
       ),
   )
-import Shrun.Notify.MonadNotify (MonadNotify (notify))
+import Shrun.Notify.DBus (runDBus)
+import Shrun.Notify.Effect (Notify (Notify))
 import Shrun.Prelude
-import Shrun.ShellT (ShellT)
 import System.Environment qualified as SysEnv
 
 newtype BenchEnv = MkBenchEnv
@@ -49,22 +48,45 @@ newtype BenchEnv = MkBenchEnv
 instance HasConsoleLogging BenchEnv () where
   getConsoleLogging = getConsoleLogging . (.unCoreEnv)
 
-instance MonadRegionLogger (ShellT BenchEnv IO) where
-  type Region (ShellT BenchEnv IO) = ()
+runRegionLogger ::
+  ( r ~ (),
+    IOE :> es
+  ) =>
+  Eff (RegionLogger r : es) a ->
+  Eff es a
+runRegionLogger = interpret $ \env -> \case
+  LogGlobal _ -> pure ()
+  LogRegion {} -> pure ()
+  WithRegion _ regionToShell -> localSeqUnliftIO env $ \unlift ->
+    unlift (regionToShell ())
+  DisplayRegions m -> localSeqUnliftIO env $ \unlift -> unlift m
 
-  logGlobal _ = pure ()
-
-  logRegion _ _ = logGlobal
-
-  withRegion _layout regionToShell = regionToShell ()
-
-  displayRegions = id
-
-instance MonadNotify (ShellT BenchEnv IO) where
-  notify _ = pure Nothing
+runNotify :: Eff (Notify : es) a -> Eff es a
+runNotify = interpret_ $ \case
+  Notify _ -> pure Nothing
 
 runBench :: List String -> IO ()
 runBench argList = do
-  SysEnv.withArgs argList $ Env.withEnv $ \env -> do
+  SysEnv.withArgs argList $ runShrun $ Env.withEnv $ \env -> do
     let benchEnv = MkBenchEnv env
-    SR.runShellT SR.shrun benchEnv
+    runReader benchEnv
+      $ runRegionLogger
+      $ runNotify
+      $ SR.shrun @BenchEnv @()
+  where
+    runShrun =
+      runEff
+        . runConcurrent
+        . runTypedProcess
+        . runIORef
+        . runOptparse
+        . runTime
+        . runFileReader
+        . runFileWriter
+        . runHandleReader
+        . runHandleWriter
+        . runPathReader
+        . runPathWriter
+        . runTerminal
+        . runRegionLogger
+        . runDBus

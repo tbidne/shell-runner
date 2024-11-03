@@ -15,7 +15,7 @@ where
 
 import Data.Sequence qualified as Seq
 import Data.Text qualified as T
-import Shrun (runShellT, shrun)
+import Shrun (shrun)
 import Shrun.Configuration (mergeConfig)
 import Shrun.Configuration.Args.Parsing
   ( parserInfoArgs,
@@ -34,71 +34,63 @@ import Shrun.Configuration.Env.Types
         config,
         consoleLogQueue
       ),
-    HasConsoleLogging,
   )
-import Shrun.Logging.MonadRegionLogger (MonadRegionLogger (Region))
-import Shrun.Notify.DBus (MonadDBus)
+import Shrun.Logging.RegionLogger (RegionLogger)
+import Shrun.Notify (runNotify)
+import Shrun.Notify.DBus (DBus)
 import Shrun.Prelude
-import Shrun.ShellT (ShellT)
 
 -- | 'withEnv' with 'shrun'.
 makeEnvAndShrun ::
-  forall m r.
-  ( HasCallStack,
-    HasConsoleLogging (Env r) (Region (ShellT (Env r) m)),
-    MonadAsync m,
-    MonadDBus m,
-    MonadFileReader m,
-    MonadFileWriter m,
-    MonadHandleReader m,
-    MonadHandleWriter m,
-    MonadIORef m,
-    MonadOptparse m,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadTypedProcess m,
-    MonadMask m,
-    MonadSTM m,
-    MonadRegionLogger m,
-    MonadTerminal m,
-    MonadThread m,
-    MonadTime m
+  forall r es.
+  ( Concurrent :> es,
+    DBus :> es,
+    FileReader :> es,
+    FileWriter :> es,
+    HandleReader :> es,
+    HandleWriter :> es,
+    HasCallStack,
+    IORefE :> es,
+    Optparse :> es,
+    PathReader :> es,
+    PathWriter :> es,
+    TypedProcess :> es,
+    RegionLogger r :> es,
+    Terminal :> es,
+    Time :> es
   ) =>
-  m ()
-makeEnvAndShrun = withEnv @m @r (runShellT shrun)
-{-# INLINEABLE makeEnvAndShrun #-}
+  Eff es ()
+makeEnvAndShrun = withEnv @r $ \env ->
+  runReader env (runNotify @r $ shrun @(Env r) @r)
 
 -- | Creates an 'Env' from CLI args and TOML config to run with a monadic
 -- action.
 withEnv ::
-  forall m r a.
-  ( HasCallStack,
-    MonadDBus m,
-    MonadFileReader m,
-    MonadFileWriter m,
-    MonadHandleWriter m,
-    MonadOptparse m,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadSTM m,
-    MonadThrow m,
-    MonadTerminal m
+  forall r es a.
+  ( Concurrent :> es,
+    DBus :> es,
+    FileReader :> es,
+    FileWriter :> es,
+    HandleWriter :> es,
+    HasCallStack,
+    Optparse :> es,
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
   ) =>
-  (Env r -> m a) ->
-  m a
+  (Env r -> Eff es a) ->
+  Eff es a
 withEnv onEnv = getMergedConfig >>= flip fromMergedConfig onEnv
-{-# INLINEABLE withEnv #-}
 
 -- | Creates a 'MergedConfig' from CLI args and TOML config.
 getMergedConfig ::
-  ( HasCallStack,
-    MonadFileReader m,
-    MonadOptparse m,
-    MonadPathReader m,
-    MonadThrow m,
-    MonadTerminal m
+  ( FileReader :> es,
+    HasCallStack,
+    Optparse :> es,
+    PathReader :> es,
+    Terminal :> es
   ) =>
-  m MergedConfig
+  Eff es MergedConfig
 getMergedConfig = do
   args <- execParser parserInfoArgs
 
@@ -134,22 +126,20 @@ getMergedConfig = do
       case decode contents of
         Right cfg -> pure cfg
         Left tomlErr -> throwM tomlErr
-{-# INLINEABLE getMergedConfig #-}
 
 fromMergedConfig ::
-  ( HasCallStack,
-    MonadDBus m,
-    MonadFileWriter m,
-    MonadHandleWriter m,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadSTM m,
-    MonadTerminal m,
-    MonadThrow m
+  ( Concurrent :> es,
+    DBus :> es,
+    FileWriter :> es,
+    HandleWriter :> es,
+    HasCallStack,
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
   ) =>
   MergedConfig ->
-  (Env r -> m a) ->
-  m a
+  (Env r -> Eff es a) ->
+  Eff es a
 fromMergedConfig cfg onEnv = do
   completedCommands <- newTVarA Seq.empty
   anyError <- newTVarA False
@@ -168,8 +158,6 @@ fromMergedConfig cfg onEnv = do
     onEnv env
   where
     commands = cfg ^. #commands
-{-# INLINEABLE fromMergedConfig #-}
 
-getShrunXdgConfig :: (HasCallStack, MonadPathReader m) => m OsPath
+getShrunXdgConfig :: (HasCallStack, PathReader :> es) => Eff es OsPath
 getShrunXdgConfig = getXdgConfig [osp|shrun|]
-{-# INLINEABLE getShrunXdgConfig #-}

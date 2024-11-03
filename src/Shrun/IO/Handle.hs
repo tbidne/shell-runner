@@ -16,12 +16,12 @@ import Data.ByteString qualified as BS
 #if MIN_VERSION_base (4, 19, 0)
 import Data.List qualified as L
 #endif
-import Effects.FileSystem.HandleReader
-  ( MonadHandleReader (hIsClosed),
-    hGetNonBlocking,
+import Effectful.FileSystem.HandleReader.Static
+  ( hGetNonBlocking,
+    hIsClosed,
     hIsReadable,
   )
-import Effects.Time (MonadTime (getMonotonicTime))
+import Effectful.Time.Dynamic (getMonotonicTime)
 import GHC.Real (RealFrac (floor))
 import Shrun.Configuration.Data.CommandLogging
 import Shrun.Data.Text (UnlinedText)
@@ -115,15 +115,14 @@ type BufferParams =
 -- | Attempts to read from the handle.
 readHandle ::
   ( HasCallStack,
-    MonadCatch m,
-    MonadHandleReader m,
-    MonadIORef m,
-    MonadTime m
+    HandleReader :> es,
+    IORefE :> es,
+    Time :> es
   ) =>
   Maybe BufferParams ->
   Int ->
   Handle ->
-  m ReadHandleResult
+  Eff es ReadHandleResult
 readHandle mBufferParams blockSize handle = do
   readHandleRaw blockSize handle >>= \case
     Left err ->
@@ -144,18 +143,16 @@ readHandle mBufferParams blockSize handle = do
           [] -> ReadNoData
           (x : xs) -> ReadSuccess (x :| xs)
       Just bufferParams -> readAndUpdateRef bufferParams bs
-{-# INLINEABLE readHandle #-}
 
 -- | Attempts to read from the handle. Returns Left error or Right
 -- success.
 readHandleRaw ::
   ( HasCallStack,
-    MonadCatch m,
-    MonadHandleReader m
+    HandleReader :> es
   ) =>
   Int ->
   Handle ->
-  m (Either (NonEmpty UnlinedText) ByteString)
+  Eff es (Either (NonEmpty UnlinedText) ByteString)
 readHandleRaw blockSize handle = do
   -- The "nothingIfReady" check and reading step both need to go in the try as
   -- the former can also throw.
@@ -204,7 +201,6 @@ readHandleRaw blockSize handle = do
           if not isReadable
             then pure $ Just "Handle is not readable"
             else pure Nothing
-{-# INLINEABLE readHandleRaw #-}
 
 -- NOTE: [EOF / blocking error] We would like to check hIsEOF (definitely
 -- causes errors at the end) and probably hReady as well, but these both
@@ -213,17 +209,17 @@ readHandleRaw blockSize handle = do
 
 -- | General handler for combining reads with previous read data.
 readAndUpdateRef ::
-  forall m.
+  forall es.
   ( HasCallStack,
-    MonadIORef m,
-    MonadTime m
+    IORefE :> es,
+    Time :> es
   ) =>
   -- | Buffer params.
   BufferParams ->
   -- | Current read.
   ByteString ->
   -- | Result.
-  m ReadHandleResult
+  Eff es ReadHandleResult
 readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) =
   readByteStringPrevHandler
     onNoData
@@ -232,7 +228,7 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
     prevReadRef
   where
     -- 1. No data: Send the prevRead if it exists and breaks the thresholds.
-    onNoData :: m ReadHandleResult
+    onNoData :: Eff es ReadHandleResult
     onNoData =
       readIORef prevReadRef
         >>= \case
@@ -243,7 +239,7 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
 
     -- 2. Partial read: Send the data if it breaks the thresholds, prepending
     -- prevRead if it exists.
-    onPartialRead :: UnlinedText -> m ReadHandleResult
+    onPartialRead :: UnlinedText -> Eff es ReadHandleResult
     onPartialRead finalPartialRead =
       readIORef prevReadRef >>= \case
         Nothing ->
@@ -255,7 +251,7 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
             <$> prepareSendIfExceedsThresholds updateRef combinedRead
 
     -- 3. Completed reads and partial read.
-    onCompletedAndPartialRead :: NonEmpty UnlinedText -> UnlinedText -> m ReadHandleResult
+    onCompletedAndPartialRead :: NonEmpty UnlinedText -> UnlinedText -> Eff es ReadHandleResult
     onCompletedAndPartialRead completedReads finalPartialRead = do
       completedReads' <- mPrependPrevRead prevReadRef completedReads
       finalPartialResult <- prepareSendIfExceedsThresholds updateRef finalPartialRead
@@ -275,10 +271,10 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
       -- Callback for __not__ sending any data. This is used by
       -- onPartialRead to update its IORef, since the reference will be new.
       -- onNoData does not need it since the reference is already up-to-date.
-      (UnlinedText -> m ()) ->
+      (UnlinedText -> Eff es ()) ->
       -- The data to check.
       UnlinedText ->
-      m (Maybe UnlinedText)
+      Eff es (Maybe UnlinedText)
     prepareSendIfExceedsThresholds onNoSend readData = do
       exceeds <- exceedsThreshold readData
       if exceeds
@@ -291,7 +287,7 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
           onNoSend readData
           pure Nothing
 
-    exceedsThreshold :: UnlinedText -> m Bool
+    exceedsThreshold :: UnlinedText -> Eff es Bool
     exceedsThreshold t =
       if bufferExceedsLength t
         then pure True
@@ -303,7 +299,7 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
         tLen = ShrunText.length t
         bufLen = bufferLength ^. #unBufferLength
 
-    bufferExceedsTime :: m Bool
+    bufferExceedsTime :: Eff es Bool
     bufferExceedsTime = do
       currTime <- getMonotonicTime
       bufferWriteTime <- readIORef bufferWriteTimeRef
@@ -320,20 +316,18 @@ readAndUpdateRef (prevReadRef, bufferLength, bufferTimeout, bufferWriteTimeRef) 
 
     maybeToReadHandleResult Nothing = ReadNoData
     maybeToReadHandleResult (Just read) = ReadSuccess (ne read)
-{-# INLINEABLE readAndUpdateRef #-}
 
 -- | Intended for a final read that handles previous read data.
 readAndUpdateRefFinal ::
-  forall m.
-  ( HasCallStack,
-    MonadIORef m
+  forall es.
+  ( IORefE :> es
   ) =>
   -- | Previous read.
   IORef (Maybe UnlinedText) ->
   -- | Current read.
   ByteString ->
   -- | Result.
-  m ReadHandleResult
+  Eff es ReadHandleResult
 readAndUpdateRefFinal prevReadRef =
   readByteStringPrevHandler
     onNoData
@@ -342,59 +336,56 @@ readAndUpdateRefFinal prevReadRef =
     prevReadRef
   where
     -- 1. No data: Final read, so send off prevRead if it exists, and reset the ref.
-    onNoData :: m ReadHandleResult
+    onNoData :: Eff es ReadHandleResult
     onNoData =
       readIORef prevReadRef >>= \case
         Nothing -> resetPrevReadRef' $> ReadNoData
         Just prevRead -> resetPrevReadRef' $> ReadSuccess (ne prevRead)
 
     -- 2. Partial read: Combine if prevRead exists, send off result.
-    onPartialRead :: UnlinedText -> m ReadHandleResult
+    onPartialRead :: UnlinedText -> Eff es ReadHandleResult
     onPartialRead finalPartialRead = do
       readIORef prevReadRef >>= \case
         Nothing -> resetPrevReadRef' $> ReadSuccess (ne finalPartialRead)
         Just prevRead -> resetPrevReadRef' $> ReadSuccess (ne $ prevRead <> finalPartialRead)
 
     -- 3. Completed and partial reads: Combine, send off result.
-    onCompletedAndPartialRead :: NonEmpty UnlinedText -> UnlinedText -> m ReadHandleResult
+    onCompletedAndPartialRead :: NonEmpty UnlinedText -> UnlinedText -> Eff es ReadHandleResult
     onCompletedAndPartialRead completedReads finalPartialRead = do
       completedReads' <- mPrependPrevRead prevReadRef completedReads
       resetPrevReadRef'
       pure $ ReadSuccess $ completedReads' <> ne finalPartialRead
 
     resetPrevReadRef' = resetPrevReadRef prevReadRef
-{-# INLINEABLE readAndUpdateRefFinal #-}
 
 mPrependPrevRead ::
-  (HasCallStack, MonadIORef m) =>
+  (IORefE :> es) =>
   IORef (Maybe UnlinedText) ->
   NonEmpty UnlinedText ->
-  m (NonEmpty UnlinedText)
+  Eff es (NonEmpty UnlinedText)
 mPrependPrevRead ref cr@(r :| rs) =
   readIORef ref >>= \case
     Nothing -> pure cr
     Just prevRead -> resetPrevReadRef' $> prevRead <> r :| rs
   where
     resetPrevReadRef' = resetPrevReadRef ref
-{-# INLINEABLE mPrependPrevRead #-}
 
 -- | Helper for reading a bytestring and handling a previous, partial read.
 readByteStringPrevHandler ::
-  forall m.
-  ( HasCallStack,
-    MonadIORef m
+  forall es.
+  ( IORefE :> es
   ) =>
   -- | Callback for no data.
-  m ReadHandleResult ->
+  Eff es ReadHandleResult ->
   -- | Callback for a partial, final read.
-  (UnlinedText -> m ReadHandleResult) ->
+  (UnlinedText -> Eff es ReadHandleResult) ->
   -- | Callback for completed reads _and_ a partial, final read.
-  (NonEmpty UnlinedText -> UnlinedText -> m ReadHandleResult) ->
+  (NonEmpty UnlinedText -> UnlinedText -> Eff es ReadHandleResult) ->
   -- | Reference that stores the previous, partial read.
   IORef (Maybe UnlinedText) ->
   -- | The bytestring for the current read.
   ByteString ->
-  m ReadHandleResult
+  Eff es ReadHandleResult
 readByteStringPrevHandler
   onNoData
   onPartialRead
@@ -410,7 +401,6 @@ readByteStringPrevHandler
     ([], Just finalPartialRead) -> onPartialRead finalPartialRead
     (c : cs, Just finalPartialRead) ->
       onCompletedAndPartialRead (c :| cs) finalPartialRead
-{-# INLINEABLE readByteStringPrevHandler #-}
 
 -- | Reads a bytestring, distinguishing between _complete_ and _partial_
 -- reads. A bytestring is considered _complete_ iff it is terminated with a
@@ -458,9 +448,8 @@ readByteString bs = case BS.unsnoc bs of
   where
     decodeRead = ShrunText.fromText . decodeUtf8Lenient
 
-resetPrevReadRef :: (HasCallStack, MonadIORef m) => IORef (Maybe a) -> m ()
+resetPrevReadRef :: (IORefE :> es) => IORef (Maybe a) -> Eff es ()
 resetPrevReadRef prevReadRef = writeIORef prevReadRef Nothing
-{-# INLINEABLE resetPrevReadRef #-}
 
 -- TODO: Remove once we are past GHC 9.6
 unsnoc :: List a -> Maybe (List a, a)
@@ -475,7 +464,6 @@ unsnoc = L.unsnoc
 -- and not to be prone to stack overflows.
 -- Expressing the recursion via 'foldr' provides for list fusion.
 unsnoc = foldr (\x -> Just . maybe ([], x) (\(~(a, b)) -> (x : a, b))) Nothing
-{-# INLINEABLE unsnoc #-}
 
 #endif
 

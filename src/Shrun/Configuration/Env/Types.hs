@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Provides types and typeclasses for our environment.
@@ -180,31 +181,31 @@ instance HasCommands (Env r) where
 
 -- | Prepends a completed command.
 prependCompletedCommand ::
-  ( HasCallStack,
+  forall env es.
+  ( Concurrent :> es,
+    HasCallStack,
     HasCommands env,
-    MonadReader env m,
-    MonadSTM m
+    Reader env :> es
   ) =>
   CommandP1 ->
-  m ()
+  Eff es ()
 prependCompletedCommand command = do
-  completedCommands <- asks getCompletedCommands
+  completedCommands <- asks @env getCompletedCommands
   modifyTVarA' completedCommands (command :<|)
-{-# INLINEABLE prependCompletedCommand #-}
 
 instance HasAnyError (Env r) where
   getAnyError = view #anyError
 
 -- | Set anyError to 'True'.
 setAnyErrorTrue ::
-  ( HasAnyError env,
+  forall env es.
+  ( Concurrent :> es,
+    HasAnyError env,
     HasCallStack,
-    MonadReader env m,
-    MonadSTM m
+    Reader env :> es
   ) =>
-  m ()
-setAnyErrorTrue = asks getAnyError >>= \ref -> writeTVarA ref True
-{-# INLINEABLE setAnyErrorTrue #-}
+  Eff es ()
+setAnyErrorTrue = asks @env getAnyError >>= \ref -> writeTVarA ref True
 
 -- | Class for retrieving the notify config.
 class HasNotifyConfig env where

@@ -1,8 +1,10 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Provides effects for sending notifications.
-module Shrun.Notify.MonadNotify
-  ( MonadNotify (..),
+module Shrun.Notify.Effect
+  ( -- * Effect
+    Notify (..),
+    notify,
     ShrunNote (..),
     NotifyException (..),
     exitFailureToStderr,
@@ -105,8 +107,19 @@ instance Exception NotifyException where
       ]
 
 -- | General effect for sending notifications.
-class (Monad m) => MonadNotify m where
-  notify :: (HasCallStack) => ShrunNote -> m (Maybe NotifyException)
+data Notify :: Effect where
+  Notify :: ShrunNote -> Notify m (Maybe NotifyException)
+
+-- | @since 0.1
+type instance DispatchOf Notify = Dynamic
+
+notify ::
+  ( HasCallStack,
+    Notify :> es
+  ) =>
+  ShrunNote ->
+  Eff es (Maybe NotifyException)
+notify = send . Notify
 
 -- | Maps (ExitCode, stderr) to Just stderr, if the exit code is
 -- ExitFailure.

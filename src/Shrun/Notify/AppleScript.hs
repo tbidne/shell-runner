@@ -5,32 +5,31 @@ module Shrun.Notify.AppleScript
 where
 
 import Data.Text qualified as T
-import Effects.Process.Typed qualified as P
+import Effectful.Process.Typed qualified as P
 import Shrun.Configuration.Data.Notify.System (NotifySystemP (AppleScript))
-import Shrun.Notify.MonadNotify
+import Shrun.Notify.Effect
   ( NotifyException (MkNotifyException),
     ShrunNote,
     exitFailureToStderr,
   )
 import Shrun.Prelude
 
+-- FIXME: notifyAppleScript should probably throw for linux.
+
 notifyAppleScript ::
-  ( HasCallStack,
-    MonadTypedProcess m
+  ( TypedProcess :> es
   ) =>
   ShrunNote ->
-  m (Maybe NotifyException)
+  Eff es (Maybe NotifyException)
 notifyAppleScript note =
   notify (shrunToAppleScript note) <<&>> \stderr ->
     MkNotifyException note AppleScript (decodeUtf8Lenient stderr)
   where
-    notify :: (HasCallStack, MonadTypedProcess m) => Text -> m (Maybe ByteString)
     notify =
       fmap exitFailureToStderr
         . P.readProcessStderr
         . P.shell
         . T.unpack
-{-# INLINEABLE notifyAppleScript #-}
 
 shrunToAppleScript :: ShrunNote -> Text
 shrunToAppleScript shrunNote = txt

@@ -5,6 +5,20 @@
 
 packages:
 - completed:
+    hackage: effectful-2.5.0.0@sha256:b6e421caf3cd70ab5cf837fc86a3c370240219ca73178629aee1dc7c31f3f219,7432
+    pantry-tree:
+      sha256: ed8bf4a92bb6dd289742db4553c75ee1c66e5b0291eb1fd0739156e6d59d63b0
+      size: 3409
+  original:
+    hackage: effectful-2.5.0.0@sha256:b6e421caf3cd70ab5cf837fc86a3c370240219ca73178629aee1dc7c31f3f219,7432
+- completed:
+    hackage: effectful-core-2.5.0.0@sha256:a34cf1f3b33cf77314d54baec81b61b1c98c67dacb1123605fd7441943e2d904,4203
+    pantry-tree:
+      sha256: aaa0b924bed66dc27fe685c9384abd9a073d17e238882d2c9ae43d49dbb67fd2
+      size: 2474
+  original:
+    hackage: effectful-core-2.5.0.0@sha256:a34cf1f3b33cf77314d54baec81b61b1c98c67dacb1123605fd7441943e2d904,4203
+- completed:
     hackage: env-guard-0.2@sha256:99b89cde1ed6d599880dfbc72b2c9a75ced57b7800a70dcb57d3e3e89e42184c,1312
     pantry-tree:
       sha256: 4884b3e9fc1fe18928cf0fda07e3de552110362d2edc024c632b0a31244cbadb
@@ -12,12 +26,26 @@ packages:
   original:
     hackage: env-guard-0.2@sha256:99b89cde1ed6d599880dfbc72b2c9a75ced57b7800a70dcb57d3e3e89e42184c,1312
 - completed:
+    hackage: strict-mutable-base-1.1.0.0@sha256:b1c039f6b179aedb420a90cbe15d3c3e78fbaaa7146ed02700b84c6018ee734f,1430
+    pantry-tree:
+      sha256: 72f03d9f5f5ad68f71e3405f8060b7a1b0875cd3f6a73ac52b8b2f091ae984d2
+      size: 439
+  original:
+    hackage: strict-mutable-base-1.1.0.0@sha256:b1c039f6b179aedb420a90cbe15d3c3e78fbaaa7146ed02700b84c6018ee734f,1430
+- completed:
     hackage: text-display-0.0.5.2@sha256:6e6a5bf1c83dfa6c34692ed5d8ea87f1bd385984309b42c302f2156f4d82477b,2670
     pantry-tree:
       sha256: e84ac3f5fdc4d6e1c544174735beb80474cf7d7b849abfd1ae6184517a30c1c1
       size: 3364
   original:
     hackage: text-display-0.0.5.2@sha256:6e6a5bf1c83dfa6c34692ed5d8ea87f1bd385984309b42c302f2156f4d82477b,2670
+- completed:
+    hackage: typed-process-effectful-1.0.0.3@sha256:83de77e159986022eea66b9fb20812f9de7b27c951cef4cee11608c6b24a80ee,2092
+    pantry-tree:
+      sha256: b82047d4da54e0c58c01e5395bf30862dcae37cbf9780f0cd3fac84e0b061c4b
+      size: 404
+  original:
+    hackage: typed-process-effectful-1.0.0.3@sha256:83de77e159986022eea66b9fb20812f9de7b27c951cef4cee11608c6b24a80ee,2092
 - completed:
     commit: f8590486ec0fc66acf7db20308e1ed6993a52151
     git: https://github.com/tbidne/algebra-simple.git
@@ -63,148 +91,122 @@ packages:
     commit: 5406cea74491f382478e70734535c62fe6deef7d
     git: https://github.com/tbidne/fs-utils.git
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-async
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: concurrent-effectful
     pantry-tree:
-      sha256: 6e143ea4f58d27e78ffb4d329219034155aeb8fed720f848a987d2706574e553
-      size: 236
-    subdir: lib/effects-async
+      sha256: dc95a54f5892fa8a134a26d57a84bd1cd6280e1d7d252fe9d1d340025b8fb4da
+      size: 245
+    subdir: lib/concurrent-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-async
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/concurrent-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-env
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: environment-effectful
     pantry-tree:
-      sha256: 3fd5ef05945557f7928c00ff63620cc4eb4271d4adfca80f7f9e0b8384ee2f66
-      size: 234
-    subdir: lib/effects-env
+      sha256: e04161f244102d2c392e3e6d947ded68d27f71a83e6c4011c1900dfcf2249ba5
+      size: 398
+    subdir: lib/environment-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-env
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/environment-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-fs
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: fs-effectful
     pantry-tree:
-      sha256: edab38a3e9d0999bc92f8738bedcd98041c058748c853020f384b2e10ec027f2
-      size: 1023
-    subdir: lib/effects-fs
+      sha256: 247772cdb77050632446dfe7d0956a3975c28576e5e7130ccf9350b44212e8c4
+      size: 1717
+    subdir: lib/fs-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-fs
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/fs-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-ioref
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: ioref-effectful
     pantry-tree:
-      sha256: 1d91747b2caf0e67f90bf43464b73a25c80f5e1bd30902a2cb9f233f578d3969
-      size: 223
-    subdir: lib/effects-ioref
+      sha256: ad35146000279749669c00875990e1d68382b66da3ff045dc576c66024c8af01
+      size: 235
+    subdir: lib/ioref-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-ioref
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/ioref-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-optparse
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: optparse-effectful
     pantry-tree:
-      sha256: d93225890965ef43c461af211451e2ef9350ae60cbd86ba25aae8dd2e0ae8e8c
-      size: 230
-    subdir: lib/effects-optparse
+      sha256: 8820f72840b6c74bd1934ed06f0ab9e5cb87b54ed1ac056a72bb2ddcf223f095
+      size: 386
+    subdir: lib/optparse-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-optparse
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/optparse-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-stm
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: stm-effectful
     pantry-tree:
-      sha256: d03470a38ce10e18a065cbf3f6b2af3830687800edcde299f460122b03c12a26
-      size: 230
-    subdir: lib/effects-stm
+      sha256: efc6d509158c6893bc1a738b9874349e9f9ac3fcc82984169cadd3df3dc0379f
+      size: 333
+    subdir: lib/stm-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-stm
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/stm-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-time
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: time-effectful
     pantry-tree:
-      sha256: feae6b589a816b73dc2443ee512b5eb913827e9d5c6ea8129331f330f87c0c43
-      size: 281
-    subdir: lib/effects-time
+      sha256: a898149e389acb6abb466defbbc2bd8a6a7e855cb48452a2ca158aa98a749daf
+      size: 501
+    subdir: lib/time-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-time
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/time-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-terminal
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: terminal-effectful
     pantry-tree:
-      sha256: ec0ee32b31fc77f759992ea759ffe41cd9a8888eebd6e4a1d57ac4852365ce84
-      size: 237
-    subdir: lib/effects-terminal
+      sha256: 226aa8732531232ee90d95d0f62ac07554c06e5edcd0a1c11d5b255767a5f86e
+      size: 315
+    subdir: lib/terminal-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-terminal
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/terminal-effectful
 - completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-thread
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    name: unix-compat-effectful
     pantry-tree:
-      sha256: fbcf6f7c1bf0bdd73ef7964e5c69fc0ada5c5a27b494e2a928afa1c5e6259c95
-      size: 236
-    subdir: lib/effects-thread
+      sha256: 0889ac5ec4d285e8020520fd8bc342d1a9f85c1b8c63a738ccc266fa593b977e
+      size: 528
+    subdir: lib/unix-compat-effectful
     version: '0.1'
   original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-thread
-- completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-typed-process
-    pantry-tree:
-      sha256: 51e3987661d1fbfff9e4e838b609c489fd8e92c6e6968f99d0fd87c6698560a5
-      size: 240
-    subdir: lib/effects-typed-process
-    version: '0.1'
-  original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-typed-process
-- completed:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    name: effects-unix-compat
-    pantry-tree:
-      sha256: 5faebc4fd2e09b012bb53b9e5aaa4b304393ce99f01a56d270486888424e52ca
-      size: 366
-    subdir: lib/effects-unix-compat
-    version: '0.1'
-  original:
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
-    git: https://github.com/tbidne/monad-effects.git
-    subdir: lib/effects-unix-compat
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
+    git: https://github.com/tbidne/effectful-libs.git
+    subdir: lib/unix-compat-effectful
 - completed:
     commit: b3be9b3b904059671ef07dbcbb11b8c04d50ddde
     git: https://github.com/tbidne/relative-time.git

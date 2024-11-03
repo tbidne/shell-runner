@@ -6,7 +6,7 @@ import Functional.Prelude
 import Shrun.Configuration.Data.Notify.Timeout
   ( NotifyTimeout (NotifyTimeoutSeconds),
   )
-import Shrun.Notify.MonadNotify
+import Shrun.Notify.Effect
   ( ShrunNote
       ( MkShrunNote,
         body,

@@ -9,7 +9,7 @@ module Shrun.Utils
     stripControlSmart,
     escapeDoubleQuotes,
 
-    -- * MonadTime Utils
+    -- * Time Utils
     diffTime,
     timeSpecToRelTime,
     foldMap1,
@@ -35,7 +35,7 @@ import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Builder (Builder)
 import Data.Text.Lazy.Builder qualified as TLB
 import Data.Time.Relative (RelativeTime, fromSeconds)
-import Effects.Time (TimeSpec, diffTimeSpec)
+import Effectful.Time.Dynamic (TimeSpec, diffTimeSpec)
 import GHC.Exts (IsList (fromList))
 import Shrun.Data.Text (UnlinedText)
 import Shrun.Data.Text qualified as ShrunText
@@ -48,7 +48,7 @@ import Text.Read qualified as TR
 -- >>> import Data.List.NonEmpty (NonEmpty (..))
 -- >>> import Data.Semigroup (Sum (..))
 -- >>> import Data.Text qualified as T
--- >>> import Effects.Time (TimeSpec (..))
+-- >>> import Effectful.Time.Dynamic (TimeSpec (..))
 -- >>> import Shrun.Prelude
 
 -- | For given \(x, y\), returns the absolute difference \(|x - y|\)
@@ -82,7 +82,6 @@ timeSpecToRelTime = fromSeconds . view #sec
 -- 1 :| [2,3,4]
 foldMap1 :: (Foldable f, Semigroup s) => (a -> s) -> a -> f a -> s
 foldMap1 f x xs = foldr (\b g y -> f y <> g b) f xs x
-{-# INLINEABLE foldMap1 #-}
 
 -- | Wrapper for 'Text'\'s 'T.breakOn' that differs in that:
 --
@@ -266,7 +265,6 @@ parseByteText txt =
 -- | Runs the action when it is 'Left'.
 whenLeft :: (Applicative f) => Either a b -> (a -> f ()) -> f ()
 whenLeft e action = either action (const (pure ())) e
-{-# INLINEABLE whenLeft #-}
 
 -- | @whileM_ mb ma@ executes @ma@ as long as @mb@ returns 'True'.
 whileM_ :: (Monad m) => m Bool -> m a -> m ()
@@ -276,7 +274,6 @@ whileM_ mb ma = go
       mb >>= \case
         True -> ma *> go
         False -> pure ()
-{-# INLINEABLE whileM_ #-}
 
 -- | Executes the monadic action until we receive a 'Just', returning the
 -- value.
@@ -287,7 +284,6 @@ untilJust m = go
       m >>= \case
         Nothing -> go
         Just x -> pure x
-{-# INLINEABLE untilJust #-}
 
 {- HLINT ignore unsafeListToNESeq "Redundant bracket" -}
 
@@ -319,7 +315,6 @@ readStripUnderscores t = case TR.readEither s of
   where
     noUnderscores = T.replace "_" "" t
     s = T.unpack noUnderscores
-{-# INLINEABLE readStripUnderscores #-}
 
 -- | Provides a standard format for "unrecognized param" failures.
 fmtUnrecognizedError ::

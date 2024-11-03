@@ -1,6 +1,18 @@
+{-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
 -- | Effect for DBus.
 module Shrun.Notify.DBus
-  ( MonadDBus (..),
+  ( -- * Effect
+    DBus (..),
+    connectSession,
+    notify,
+
+    -- * Handler
+    runDBus,
+
+    -- * Functions
     notifyDBus,
   )
 where
@@ -10,48 +22,63 @@ import DBus.Client qualified as DBusC
 import DBus.Notify (Hint (Urgency), Note)
 import DBus.Notify qualified as DBusN
 import Data.Text qualified as T
-import Shrun.Configuration.Data.Notify.System (NotifySystemP (DBus))
+import Shrun.Configuration.Data.Notify.System
+  ( NotifySystemP (DBus),
+    OsxNotifySystemMismatch (OsxNotifySystemMismatchDBus),
+  )
 import Shrun.Configuration.Data.Notify.Timeout
   ( NotifyTimeout
       ( NotifyTimeoutNever,
         NotifyTimeoutSeconds
       ),
   )
-import Shrun.Notify.MonadNotify (NotifyException (MkNotifyException), ShrunNote)
+import Shrun.Notify.Effect (NotifyException (MkNotifyException), ShrunNote)
 import Shrun.Prelude
 
--- | Effect for DBus.
-class (Monad m) => MonadDBus m where
-  -- | Connects to DBus.
-  connectSession :: (HasCallStack) => m Client
+data DBus :: Effect where
+  ConnectSession :: DBus m Client
+  Notify :: Client -> Note -> DBus m (Maybe SomeException)
 
-  -- | Sends a notification to DBus.
-  notify :: (HasCallStack) => Client -> Note -> m (Maybe SomeException)
+-- | @since 0.1
+type instance DispatchOf DBus = Dynamic
 
-instance MonadDBus IO where
-  connectSession = DBusC.connectSession
+connectSession ::
+  ( DBus :> es,
+    HasCallStack
+  ) =>
+  Eff es Client
+connectSession = send ConnectSession
 
-  notify client note =
-    trySync (DBusN.notify client note) <&> \case
+notify ::
+  ( DBus :> es,
+    HasCallStack
+  ) =>
+  Client ->
+  Note ->
+  Eff es (Maybe SomeException)
+notify c = send . Notify c
+
+runDBus :: (HasCallStack, IOE :> es) => Eff (DBus : es) a -> Eff es a
+runDBus = interpret_ $ \case
+  ConnectSession -> liftIO DBusC.connectSession
+  Notify client note ->
+    trySync (liftIO $ DBusN.notify client note) <&> \case
       Left err -> Just err
       Right _ -> Nothing
 
-instance (MonadDBus m) => MonadDBus (ReaderT env m) where
-  connectSession = lift connectSession
-
-  notify c = lift . notify c
-
 notifyDBus ::
-  ( HasCallStack,
-    MonadDBus m
+  ( DBus :> es,
+    HasCallStack
   ) =>
   Client ->
   ShrunNote ->
-  m (Maybe NotifyException)
+  Eff es (Maybe NotifyException)
+#if OSX
+notifyDBus _ _ = throwM OsxNotifySystemMismatchDBus
+#else
 notifyDBus client note =
   notify client (shrunToDBus note) <<&>> \stderr ->
     MkNotifyException note (DBus ()) (T.pack $ displayException stderr)
-{-# INLINEABLE notifyDBus #-}
 
 shrunToDBus :: ShrunNote -> Note
 shrunToDBus shrunNote =
@@ -69,3 +96,4 @@ shrunToDBus shrunNote =
       NotifyTimeoutNever -> DBusN.Never
       NotifyTimeoutSeconds s ->
         DBusN.Milliseconds $ 1_000 * unsafeConvertIntegral s
+#endif

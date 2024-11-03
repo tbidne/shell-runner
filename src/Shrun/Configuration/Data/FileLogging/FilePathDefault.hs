@@ -24,4 +24,3 @@ parseFilePathDefault getTxt =
     "default" -> pure FPDefault
     "" -> fail "Empty path given for --file-log"
     other -> FPManual <$> OsPath.encodeFail (T.unpack other)
-{-# INLINEABLE parseFilePathDefault #-}

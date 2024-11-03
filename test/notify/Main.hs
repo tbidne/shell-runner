@@ -5,9 +5,17 @@
 -- | Runs functional tests.
 module Main (main) where
 
+import Data.IORef qualified as IORef
 import Data.Text qualified as T
 import GHC.Conc.Sync (setUncaughtExceptionHandler)
-import Shrun (shrun)
+import Shrun qualified as SR
+import Shrun.Configuration.Data.Notify.System
+  ( NotifySystemP
+      ( AppleScript,
+        DBus,
+        NotifySend
+      ),
+  )
 import Shrun.Configuration.Env (withEnv)
 import Shrun.Configuration.Env.Types
   ( Env,
@@ -21,21 +29,24 @@ import Shrun.Configuration.Env.Types
     HasNotifyConfig (getNotifyConfig),
     HasTimeout (getTimeout),
   )
-import Shrun.Logging.MonadRegionLogger
-  ( MonadRegionLogger
-      ( Region,
-        displayRegions,
-        logGlobal,
-        logRegion,
-        withRegion
+import Shrun.Logging.RegionLogger
+  ( RegionLogger
+      ( DisplayRegions,
+        LogGlobal,
+        LogRegion,
+        WithRegion
       ),
   )
 import Shrun.Logging.Types (LogRegion)
-import Shrun.Notify.MonadNotify (MonadNotify (notify))
+import Shrun.Notify.AppleScript qualified as AppleScript
+import Shrun.Notify.DBus qualified as DBus
+import Shrun.Notify.Effect (Notify (Notify))
+import Shrun.Notify.NotifySend qualified as NotifySend
 import Shrun.Prelude
-import Shrun.ShellT (ShellT, runShellT)
+import System.Environment qualified as SysEnv
 import System.Environment.Guard (guardOrElse')
 import System.Environment.Guard.Lifted (ExpectEnv (ExpectEnvSet))
+import System.IO qualified as IO
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (assertFailure, testCase)
 
@@ -44,10 +55,10 @@ main :: IO ()
 main = guardOrElse' "NOTIFY_TESTS" ExpectEnvSet runTests dontRun
   where
     runTests = do
-      setUncaughtExceptionHandler (putStrLn . displayException)
+      setUncaughtExceptionHandler (IO.putStrLn . displayException)
       defaultMain tests
 
-    dontRun = putStrLn "*** Notify tests disabled. Enable with NOTIFY_TESTS=1 ***"
+    dontRun = IO.putStrLn "*** Notify tests disabled. Enable with NOTIFY_TESTS=1 ***"
 
 tests :: TestTree
 tests = do
@@ -72,7 +83,7 @@ osTests =
 -- in legend file commands.
 notifySendHandlesLegendQuotes :: TestTree
 notifySendHandlesLegendQuotes = testCase "notify-send handles legend quotes" $ do
-  runShrun args
+  runNotifyIO args
   where
     args =
       [ "--common-log-key-hide",
@@ -143,44 +154,61 @@ instance HasNotifyConfig NotifyEnv where
 instance HasTimeout NotifyEnv where
   getTimeout = getTimeout . (.unNotifyEnv)
 
-liftNotify :: ShellT (Env ()) IO a -> ShellT NotifyEnv IO a
-liftNotify m = do
-  MkNotifyEnv env _ _ <- ask
-  liftIO $ runShellT m env
+runNotify ::
+  ( DBus.DBus :> es,
+    Reader NotifyEnv :> es,
+    TypedProcess :> es
+  ) =>
+  Eff (Notify : es) a ->
+  Eff es a
+runNotify = interpret_ $ \case
+  Notify note -> do
+    asks @NotifyEnv (preview (#config % #notify %? #system) . (.unNotifyEnv)) >>= \case
+      Nothing -> pure Nothing
+      Just nenv -> sendNote nenv
+    where
+      sendNote (DBus client) = DBus.notifyDBus client note
+      sendNote NotifySend = NotifySend.notifyNotifySend note
+      sendNote AppleScript = AppleScript.notifyAppleScript note
 
-instance MonadNotify (ShellT NotifyEnv IO) where
-  notify = liftNotify . notify
-
-instance MonadRegionLogger (ShellT NotifyEnv IO) where
-  type Region (ShellT NotifyEnv IO) = ()
-
-  logGlobal t = asks (.logsRef) >>= \ref -> modifyIORef' ref (t :)
-  logRegion _ _ t = asks (.logsRef) >>= \ref -> modifyIORef' ref (t :)
-  withRegion _ onRegion = onRegion ()
-  displayRegions m = m
+runRegionLogger ::
+  ( r ~ (),
+    HasCallStack,
+    IOE :> es,
+    IORefE :> es,
+    Reader NotifyEnv :> es
+  ) =>
+  Eff (RegionLogger r : es) a ->
+  Eff es a
+runRegionLogger = interpret $ \env -> \case
+  LogGlobal txt -> writeLogs txt
+  LogRegion _ _ txt -> writeLogs txt
+  WithRegion _ regionToShell -> localSeqUnliftIO env $ \unlift ->
+    unlift (regionToShell ())
+  DisplayRegions m -> localSeqUnliftIO env $ \unlift -> unlift m
+  where
+    writeLogs txt = do
+      ls <- asks @NotifyEnv $ (.logsRef)
+      modifyIORef' ls (txt :)
 
 runShrunNoConfig :: List String -> IO ()
-runShrunNoConfig = runShrun . ("--no-config" :)
+runShrunNoConfig = runNotifyIO . ("--no-config" :)
 
-runShrun :: List String -> IO ()
-runShrun args = do
-  consoleQueue <- newTBQueueA 1
-  logsRef <- newIORef []
-  eSomeEx <-
-    trySync
-      $ withArgs
-        args
-        ( withEnv
-            ( \env ->
-                runShellT shrun
-                  $ MkNotifyEnv env consoleQueue logsRef
-            )
-        )
+runNotifyIO :: List String -> IO ()
+runNotifyIO args = do
+  logsRef <- IORef.newIORef []
+  eSomeEx <- trySync $ SysEnv.withArgs args $ runShrun $ withEnv $ \env -> do
+    consoleQueue <- newTBQueueA 1
+    let notifyEnv = MkNotifyEnv env consoleQueue logsRef
+    runReader notifyEnv
+      $ runRegionLogger
+      $ runNotify
+      $ SR.shrun @NotifyEnv @()
 
   case eSomeEx of
     Right () -> pure ()
     Left ex -> do
-      logs <- readIORef logsRef
+      logs <- IORef.readIORef logsRef
 
       let formatted = T.intercalate "\n" logs
           err =
@@ -193,3 +221,19 @@ runShrun args = do
               ]
 
       assertFailure err
+  where
+    runShrun =
+      runEff
+        . runConcurrent
+        . runTypedProcess
+        . runIORef
+        . runFileReader
+        . runFileWriter
+        . runHandleReader
+        . runHandleWriter
+        . runOptparse
+        . runPathReader
+        . runPathWriter
+        . runTerminal
+        . runTime
+        . DBus.runDBus

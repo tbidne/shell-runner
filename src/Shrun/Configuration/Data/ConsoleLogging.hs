@@ -199,11 +199,11 @@ instance
 -- | Merges args and toml configs.
 mergeConsoleLogging ::
   ( HasCallStack,
-    MonadTerminal m
+    Terminal :> es
   ) =>
   ConsoleLoggingArgs ->
   Maybe ConsoleLoggingToml ->
-  m ConsoleLoggingMerged
+  Eff es ConsoleLoggingMerged
 mergeConsoleLogging args mToml = do
   lineTrunc <-
     configToLineTrunc $ (args ^. #lineTrunc) <>? (toml ^. #lineTrunc)
@@ -229,7 +229,6 @@ mergeConsoleLogging args mToml = do
     argsCommandLogging = args ^. #commandLogging $> True
 
     toml = fromMaybe def mToml
-{-# INLINEABLE mergeConsoleLogging #-}
 
 instance DecodeTOML ConsoleLoggingToml where
   tomlDecoder =

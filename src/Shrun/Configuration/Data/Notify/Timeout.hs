@@ -71,7 +71,6 @@ parseNotifyTimeout getTxt =
             "notify timeout"
             notifyTimeoutStr
             (unpack other)
-{-# INLINEABLE parseNotifyTimeout #-}
 
 -- | Available 'NotifyTimeout' strings.
 notifyTimeoutStr :: (IsString a) => a

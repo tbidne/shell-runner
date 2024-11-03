@@ -98,7 +98,11 @@ testDefaultOption = testPropertyNamed desc "testDefaultOption"
   $ withTests 1
   $ property
   $ do
-    expected <- liftIO $ readFileUtf8ThrowM [osp|examples/default.toml|]
+    expected <-
+      liftIO
+        $ runEff
+        $ runFileReader
+        $ readFileUtf8ThrowM [osp|examples/default.toml|]
 
     let result = U.execParserUnit ["--default-config"]
 

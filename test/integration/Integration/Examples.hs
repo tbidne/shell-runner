@@ -95,10 +95,10 @@ examplesConfig = testPropertyNamed desc "examplesConfig"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
     makeConfigAndAssertEq args (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "examples/config.toml is valid"
@@ -147,10 +147,10 @@ examplesDefault = testPropertyNamed desc "examplesDefault"
   $ withTests 1
   $ property
   $ do
-    logsRef <- liftIO $ newIORef []
+    logsRef <- liftIO $ IORef.newIORef []
     makeConfigAndAssertEq args (`runConfigIO` logsRef) expected
 
-    logs <- liftIO $ readIORef logsRef
+    logs <- liftIO $ IORef.readIORef logsRef
     [] === logs
   where
     desc = "examples/default.toml is valid"

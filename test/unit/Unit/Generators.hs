@@ -10,7 +10,7 @@ module Unit.Generators
   )
 where
 
-import Effects.Time (TimeSpec (MkTimeSpec))
+import Effectful.Time.Dynamic (TimeSpec (MkTimeSpec))
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
 import Shrun.Data.Text (UnlinedText)

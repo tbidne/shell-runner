@@ -119,7 +119,6 @@ parseNotifySystem getTxt =
           "notify system"
           notifySystemStr
           (unpack bad)
-{-# INLINEABLE parseNotifySystem #-}
 
 -- | Available 'NotifySystem' strings.
 notifySystemStr :: (IsString a) => a

@@ -37,7 +37,7 @@ import Shrun.Configuration.Data.Notify qualified as Notify
 import Shrun.Configuration.Data.WithDisabled ((<?>?))
 import Shrun.Configuration.Default (Default (def))
 import Shrun.Data.Command (CommandP1)
-import Shrun.Notify.DBus (MonadDBus)
+import Shrun.Notify.DBus (DBus)
 import Shrun.Prelude
 
 -- | For types that are only guaranteed to exist for Args. Generally this
@@ -204,13 +204,12 @@ deriving stock instance Show (CoreConfigP ConfigPhaseMerged)
 
 mergeCoreConfig ::
   ( HasCallStack,
-    MonadTerminal m,
-    MonadThrow m
+    Terminal :> es
   ) =>
   NESeq CommandP1 ->
   CoreConfigArgs ->
   Maybe CoreConfigToml ->
-  m CoreConfigMerged
+  Eff es CoreConfigMerged
 mergeCoreConfig cmds args mToml = do
   consoleLogging <-
     mergeConsoleLogging
@@ -247,25 +246,23 @@ mergeCoreConfig cmds args mToml = do
       }
   where
     toml = fromMaybe def mToml
-{-# INLINEABLE mergeCoreConfig #-}
 
 -- | Given a merged CoreConfig, constructs a ConfigEnv and calls the
 -- continuation.
 withCoreEnv ::
-  forall m a.
-  ( HasCallStack,
-    MonadDBus m,
-    MonadFileWriter m,
-    MonadHandleWriter m,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadSTM m,
-    MonadTerminal m,
-    MonadThrow m
+  forall es a.
+  ( Concurrent :> es,
+    DBus :> es,
+    FileWriter :> es,
+    HandleWriter :> es,
+    HasCallStack,
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
   ) =>
   CoreConfigMerged ->
-  (CoreConfigEnv -> m a) ->
-  m a
+  (CoreConfigEnv -> Eff es a) ->
+  Eff es a
 withCoreEnv merged onCoreConfigEnv = do
   notify <- traverse Notify.toEnv (merged ^. #notify)
 
@@ -281,7 +278,6 @@ withCoreEnv merged onCoreConfigEnv = do
               notify
             }
      in onCoreConfigEnv coreConfigEnv
-{-# INLINEABLE withCoreEnv #-}
 
 instance Default (CoreConfigP ConfigPhaseArgs) where
   def =

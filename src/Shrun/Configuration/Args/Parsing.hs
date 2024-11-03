@@ -14,7 +14,7 @@ import Data.List qualified as L
 import Data.String (IsString (fromString))
 import Data.Text qualified as T
 import Data.Version (Version (versionBranch))
-import Effects.Optparse (validOsPath)
+import Effectful.Optparse.Static (validOsPath)
 import Options.Applicative
   ( Parser,
     ParserInfo

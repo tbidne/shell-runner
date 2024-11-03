@@ -28,7 +28,6 @@ instance DecodeTOML PollInterval where
 
 parsePollInterval :: (Functor m) => m Natural -> m PollInterval
 parsePollInterval getNat = MkPollInterval <$> getNat
-{-# INLINEABLE parsePollInterval #-}
 
 instance Default PollInterval where
   def = MkPollInterval 10_000

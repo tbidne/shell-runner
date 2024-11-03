@@ -49,7 +49,6 @@ parseReadStrategy getTxt =
           "read strategy"
           readStrategyStr
           (unpack bad)
-{-# INLINEABLE parseReadStrategy #-}
 
 -- | Available 'ReadStrategy' strings.
 readStrategyStr :: (IsString a) => a

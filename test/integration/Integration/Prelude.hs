@@ -9,9 +9,13 @@ module Integration.Prelude
     getIntConfig,
     getIntConfigOS,
     concatDirs,
+    runIntEff,
   )
 where
 
+import Effectful.FileSystem.PathReader.Static qualified as PR
+import Effectful.FileSystem.PathWriter.Static qualified as PW
+import Effectful.Terminal.Static qualified as Term
 import FileSystem.OsPath as X
   ( combineFilePaths,
     unsafeDecode,
@@ -109,6 +113,27 @@ getIntConfig fileName =
 
 concatDirs :: List FilePath -> FilePath
 concatDirs = foldr combineFilePaths []
+
+-- | General effects we use for test definition / setup. This should all be
+-- static since should be no mocking.
+runIntEff ::
+  (HasCallStack, MonadIO m) =>
+  Eff
+    [ FileWriter,
+      Term.Terminal,
+      PW.PathWriter,
+      PR.PathReader,
+      IOE
+    ]
+    a ->
+  m a
+runIntEff =
+  liftIO
+    . runEff
+    . PR.runPathReader
+    . PW.runPathWriter
+    . Term.runTerminal
+    . runFileWriter
 
 osExt :: FilePath -> FilePath
 #if OSX

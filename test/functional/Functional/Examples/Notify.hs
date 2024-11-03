@@ -8,7 +8,7 @@ import Shrun.Configuration.Data.Notify.Timeout
         NotifyTimeoutSeconds
       ),
   )
-import Shrun.Notify.MonadNotify
+import Shrun.Notify.Effect
   ( ShrunNote
       ( MkShrunNote,
         body,

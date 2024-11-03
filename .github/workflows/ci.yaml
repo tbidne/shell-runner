@@ -5,6 +5,7 @@ on: # yamllint disable-line rule:truthy rule:comments
     branches:
       - main
       - release
+      - effectful
   pull_request:
     branches:
       - main
@@ -42,8 +43,9 @@ jobs:
             --ghc-options -Werror
 
       - name: Compile
-        run: cabal build ${{ matrix.ghc.proj-file }} lib:shrun
-
+        # yamllint disable rule:line-length
+        run: cabal build ${{ matrix.ghc.proj-file }} lib:shrun --minimize-conflict-set
+        # yamllint enable
       - name: Unit Tests
         run: |
           cabal test ${{ matrix.ghc.proj-file }} unit \

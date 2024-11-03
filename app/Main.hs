@@ -1,6 +1,8 @@
 module Main (main) where
 
 import Shrun.Configuration.Env (makeEnvAndShrun)
+import Shrun.Logging.RegionLogger (runRegionLogger)
+import Shrun.Notify.DBus (runDBus)
 import Shrun.Prelude hiding (IO)
 import Prelude (IO)
 
@@ -18,7 +20,7 @@ main = do
   -- is just unhelpful noise.
   setUncaughtExceptionHandlerDisplay
 
-  makeEnvAndShrun @IO @ConsoleRegion `catch` doNothingOnSuccess
+  runShrun (makeEnvAndShrun @ConsoleRegion) `catch` doNothingOnSuccess
   where
     -- We need to catch ExitCode so that optparse applicative's --help
     -- does not set the error code to failure...but then we need to rethrow
@@ -26,3 +28,20 @@ main = do
     doNothingOnSuccess :: ExitCode -> IO ()
     doNothingOnSuccess ExitSuccess = pure ()
     doNothingOnSuccess ex@(ExitFailure _) = throwM ex
+
+    runShrun =
+      runEff
+        . runConcurrent
+        . runTypedProcess
+        . runIORef
+        . runOptparse
+        . runTime
+        . runFileReader
+        . runFileWriter
+        . runHandleReader
+        . runHandleWriter
+        . runPathReader
+        . runPathWriter
+        . runTerminal
+        . runRegionLogger
+        . runDBus

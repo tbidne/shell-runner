@@ -3,8 +3,8 @@
 -- | Runs integration tests.
 module Main (main) where
 
-import Effects.FileSystem.PathReader qualified as PR
-import Effects.FileSystem.PathWriter qualified as PW
+import Effectful.FileSystem.PathReader.Static qualified as PR
+import Effectful.FileSystem.PathWriter.Static qualified as PW
 import Integration.Defaults qualified as Defaults
 import Integration.Examples qualified as Examples
 import Integration.Failures qualified as Failures
@@ -28,25 +28,43 @@ main = do
 
 setup :: IO TestArgs
 setup = do
-  rootTmpDir <- (</> [osp|shrun|]) <$> PR.getTemporaryDirectory
+  rootTmpDir <- runEff' $ (</> [osp|shrun|]) <$> PR.getTemporaryDirectory
   let workingTmpDir = rootTmpDir </> [osp|test/integration|]
 
-  PW.createDirectoryIfMissing True workingTmpDir
+  runEff' $ PW.createDirectoryIfMissing True workingTmpDir
   pure $ MkTestArgs rootTmpDir workingTmpDir
 
 teardown :: TestArgs -> IO ()
 teardown testArgs = guardOrElse' "NO_CLEANUP" ExpectEnvSet doNothing cleanup
   where
     doNothing =
-      putStrLn
+      runEff'
+        $ putStrLn
         $ "*** Not cleaning up tmp dir: '"
         <> decodeLenient (testArgs ^. #rootTmpDir)
         <> "'"
 
-    cleanup = do
+    cleanup = runEff' $ do
       let cwd = testArgs ^. #workingTmpDir
 
       -- NOTE: [Test cleanup]
       --
       -- Don't delete rootTmp because other tests may be using it.
       PW.removeDirectoryRecursiveIfExists_ cwd
+
+runEff' ::
+  Eff
+    [ FileWriter,
+      Terminal,
+      PW.PathWriter,
+      PR.PathReader,
+      IOE
+    ]
+    a ->
+  IO a
+runEff' =
+  runEff
+    . PR.runPathReader
+    . PW.runPathWriter
+    . runTerminal
+    . runFileWriter

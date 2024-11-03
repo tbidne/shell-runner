@@ -28,7 +28,6 @@ parseFileMode getTxt =
     bad ->
       fail
         $ Utils.fmtUnrecognizedError "file-mode" fileModeStr (unpack bad)
-{-# INLINEABLE parseFileMode #-}
 
 instance Default FileMode where
   def = FileModeWrite

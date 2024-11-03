@@ -23,9 +23,8 @@ import Data.Bytes
   )
 import Data.Text qualified as T
 import Data.Word (Word16)
-import Effects.FileSystem.HandleWriter (MonadHandleWriter (withBinaryFile), die)
-import Effects.FileSystem.PathWriter (MonadPathWriter (createDirectoryIfMissing))
-import FileSystem.OsPath (encodeThrowM)
+import Effectful.FileSystem.HandleWriter.Static (die, withBinaryFile)
+import Effectful.FileSystem.PathWriter.Static (createDirectoryIfMissing)
 import GHC.Num (Num (fromInteger))
 import Shrun.Configuration.Data.ConfigPhase
   ( ConfigPhase
@@ -407,11 +406,11 @@ instance
 -- | Merges args and toml configs.
 mergeFileLogging ::
   ( HasCallStack,
-    MonadTerminal m
+    Terminal :> es
   ) =>
   FileLoggingArgs ->
   Maybe FileLoggingToml ->
-  m (Maybe FileLoggingMerged)
+  Eff es (Maybe FileLoggingMerged)
 mergeFileLogging args mToml = for mPath $ \path -> do
   let toml = fromMaybe (defaultToml path) mToml
 
@@ -473,7 +472,6 @@ mergeFileLogging args mToml = for mPath $ \path -> do
       (Without, Nothing) -> Nothing
       (With p, _) -> Just p
       (_, Just toml) -> Just $ toml ^. #file % #path
-{-# INLINEABLE mergeFileLogging #-}
 
 instance DecodeTOML FileLoggingToml where
   tomlDecoder =
@@ -495,19 +493,18 @@ type MLogging = Maybe (Tuple3 FileLoggingMerged Handle (TBQueue FileLog))
 -- | Given merged FileLogging config, constructs a FileLoggingEnv and calls
 -- the continuation.
 withFileLoggingEnv ::
-  forall m a.
+  forall es a.
   ( HasCallStack,
-    MonadFileWriter m,
-    MonadHandleWriter m,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadSTM m,
-    MonadTerminal m,
-    MonadThrow m
+    Concurrent :> es,
+    FileWriter :> es,
+    HandleWriter :> es,
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
   ) =>
   Maybe FileLoggingMerged ->
-  (Maybe FileLoggingEnv -> m a) ->
-  m a
+  (Maybe FileLoggingEnv -> Eff es a) ->
+  Eff es a
 withFileLoggingEnv mFileLogging onFileLoggingEnv = do
   let mkEnv :: MLogging -> Maybe FileLoggingEnv
       mkEnv Nothing = Nothing
@@ -526,22 +523,20 @@ withFileLoggingEnv mFileLogging onFileLoggingEnv = do
             }
 
   withMLogging mFileLogging (onFileLoggingEnv . mkEnv)
-{-# INLINEABLE withFileLoggingEnv #-}
 
 withMLogging ::
-  forall m a.
+  forall es a.
   ( HasCallStack,
-    MonadFileWriter m,
-    MonadHandleWriter m,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadSTM m,
-    MonadTerminal m,
-    MonadThrow m
+    Concurrent :> es,
+    FileWriter :> es,
+    HandleWriter :> es,
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
   ) =>
   Maybe FileLoggingMerged ->
-  (MLogging -> m a) ->
-  m a
+  (MLogging -> Eff es a) ->
+  Eff es a
 -- 1. No file logging
 withMLogging Nothing onLogging = onLogging Nothing
 -- 2. Use the default path.
@@ -572,21 +567,25 @@ withMLogging (Just fileLogging) onLogging = do
   -- If the above command succeeded and deleteOnSuccess is true, delete the
   -- log file. Otherwise we will not reach here due to withBinaryFile
   -- rethrowing an exception, so the file will not be deleted.
-  when (fileLogging ^. #deleteOnSuccess % #boolIso)
-    $ removeFileIfExists_ uniqFp
+  when (fileLogging ^. #deleteOnSuccess % #boolIso) $ do
+    -- cannot use usual removeFileIfExists for this idiom because that
+    -- function assumes the same Static/Dynamic status for
+    -- doesFileExist/removeFile, but require Dynamic doesFileExist and
+    -- static removeFile
+    exists <- doesFileExist fp
+    when exists (removeFile fp)
 
   pure result
-{-# INLINEABLE withMLogging #-}
 
 handleLogFileSize ::
   ( HasCallStack,
-    MonadPathReader m,
-    MonadPathWriter m,
-    MonadTerminal m
+    PathReader :> es,
+    PathWriter :> es,
+    Terminal :> es
   ) =>
   FileSizeMode ->
   OsPath ->
-  m ()
+  Eff es ()
 handleLogFileSize fileSizeMode fp = do
   fileSize <- MkBytes @B . unsafeConvertIntegral <$> getFileSize fp
   case fileSizeMode of
@@ -621,23 +620,21 @@ handleLogFileSize fileSizeMode fp = do
 
     toDouble :: Integer -> Double
     toDouble = fromInteger
-{-# INLINEABLE handleLogFileSize #-}
 
 -- | Ensures the given path exists. If the path already exists and the file
 -- mode is FileModeRename, we rename the new path sequentially, to avoid
 -- a collision.
 createLogFile ::
   ( HasCallStack,
-    MonadFileWriter m,
-    MonadHandleWriter m,
-    MonadPathReader m,
-    MonadThrow m
+    FileWriter :> es,
+    HandleWriter :> es,
+    PathReader :> es
   ) =>
   -- | Mode in which to open the new log file.
   FileMode ->
   -- | Full path of the desired file.
   OsPath ->
-  m OsPath
+  Eff es OsPath
 createLogFile mode fp = do
   exists <- doesFileExist fp
 
@@ -648,24 +645,22 @@ createLogFile mode fp = do
         writeFileUtf8 newFp "" $> newFp
       _ -> pure fp
     else writeFileUtf8 fp "" $> fp
-{-# INLINEABLE createLogFile #-}
 
 uniqName ::
-  forall m.
+  forall es.
   ( HasCallStack,
-    MonadHandleWriter m,
-    MonadPathReader m,
-    MonadThrow m
+    HandleWriter :> es,
+    PathReader :> es
   ) =>
   OsPath ->
-  m OsPath
+  Eff es OsPath
 uniqName fp = go 1
   where
     (base, ext) = OsPath.splitExtension fp
 
     appendNum c = base <> [osp| (|] <> c <> [osp|)|] <> ext
 
-    go :: Word16 -> m OsPath
+    go :: Word16 -> Eff es OsPath
     go !counter
       | counter == maxBound = die $ "Failed renaming file: " <> show fp
       | otherwise = do
@@ -675,9 +670,8 @@ uniqName fp = go 1
             then go (counter + 1)
             else pure newFp
 
-getShrunXdgState :: (HasCallStack, MonadPathReader m) => m OsPath
+getShrunXdgState :: (HasCallStack, PathReader :> es) => Eff es OsPath
 getShrunXdgState = getXdgState [osp|shrun|]
-{-# INLINEABLE getShrunXdgState #-}
 
 defaultToml :: FilePathDefault -> FileLoggingToml
 defaultToml path =

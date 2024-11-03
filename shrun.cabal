@@ -113,49 +113,47 @@ library
     Shrun.IO.Handle
     Shrun.Logging
     Shrun.Logging.Formatting
-    Shrun.Logging.MonadRegionLogger
+    Shrun.Logging.RegionLogger
     Shrun.Logging.Types
     Shrun.Logging.Types.Internal
     Shrun.Notify
     Shrun.Notify.AppleScript
     Shrun.Notify.DBus
-    Shrun.Notify.MonadNotify
+    Shrun.Notify.Effect
     Shrun.Notify.NotifySend
     Shrun.Prelude
-    Shrun.ShellT
     Shrun.Utils
 
   build-depends:
-    , base                   >=4.17      && <4.21
-    , bytestring             >=0.10.12   && <0.13
-    , concurrent-output      ^>=1.10.7
-    , containers             >=0.6.2.1   && <0.8
-    , dbus                   >=1.2.14    && <1.4
-    , effects-async          ^>=0.1
-    , effects-env            ^>=0.1
-    , effects-fs             ^>=0.1
-    , effects-ioref          ^>=0.1
-    , effects-optparse       ^>=0.1
-    , effects-stm            ^>=0.1
-    , effects-terminal       ^>=0.1
-    , effects-thread         ^>=0.1
-    , effects-time           ^>=0.1
-    , effects-typed-process  ^>=0.1
-    , exception-utils        ^>=0.1
-    , exceptions             ^>=0.10.4
-    , fdo-notify             ^>=0.3.1
-    , filepath               >=1.4.100.1 && <1.6
-    , hashable               >=1.3.0.0   && <1.6
-    , mtl                    >=2.2.1     && <2.4
-    , nonempty-containers    >=0.3.4.2   && <0.4
-    , optics-core            ^>=0.4
-    , optparse-applicative   >=0.15      && <0.19
-    , pretty-terminal        ^>=0.1
-    , relative-time          ^>=0.1
-    , si-bytes               ^>=0.1
-    , text                   >=1.2.3.2   && <2.2
-    , toml-reader            >=0.2.0.0   && <0.3.0.0
-    , unordered-containers   ^>=0.2.9.0
+    , base                     >=4.17      && <4.21
+    , bytestring               >=0.10.12   && <0.13
+    , concurrent-effectful     ^>=0.1
+    , concurrent-output        ^>=1.10.7
+    , containers               >=0.6.2.1   && <0.8
+    , dbus                     >=1.2.14    && <1.4
+    , effectful                >=2.5.0.0   && <2.6
+    , exception-utils          ^>=0.1
+    , exceptions               ^>=0.10.4
+    , fdo-notify               ^>=0.3.1
+    , filepath                 >=1.4.100.1 && <1.6
+    , fs-effectful             ^>=0.1
+    , hashable                 >=1.3.0.0   && <1.6
+    , ioref-effectful          ^>=0.1
+    , mtl                      >=2.2.1     && <2.4
+    , nonempty-containers      >=0.3.4.2   && <0.4
+    , optics-core              ^>=0.4
+    , optparse-applicative     >=0.15      && <0.19
+    , optparse-effectful       ^>=0.1
+    , pretty-terminal          ^>=0.1
+    , relative-time            ^>=0.1
+    , si-bytes                 ^>=0.1
+    , stm-effectful            ^>=0.1
+    , terminal-effectful       ^>=0.1
+    , text                     >=1.2.3.2   && <2.2
+    , time-effectful           ^>=0.1
+    , toml-reader              >=0.2.0.0   && <0.3.0.0
+    , typed-process-effectful  ^>=1.0.0.0
+    , unordered-containers     ^>=0.2.9.0
 
   -- For tuple syntax
   if impl(ghc >=9.10.1)
@@ -209,7 +207,6 @@ test-suite unit
   build-depends:
     , base
     , containers
-    , effects-time
     , hedgehog              >=1.0.2   && <1.6
     , optparse-applicative
     , shrun
@@ -219,6 +216,7 @@ test-suite unit
     , tasty-hunit
     , text
     , time                  >=1.9.3   && <1.15
+    , time-effectful
     , unordered-containers
 
   hs-source-dirs: test/unit
@@ -239,15 +237,15 @@ test-suite integration
   build-depends:
     , base
     , dbus
-    , effects-fs
-    , effects-terminal
     , env-guard
+    , fs-effectful
     , hedgehog
     , nonempty-containers
     , shrun
     , tasty
     , tasty-hedgehog
     , tasty-hunit
+    , terminal-effectful
     , text
 
   hs-source-dirs: test/integration
@@ -273,15 +271,16 @@ test-suite functional
 
   build-depends:
     , base
-    , effects-fs
     , env-guard
     , fdo-notify
+    , fs-effectful
     , optparse-applicative
     , shrun
     , shrun-verifier
     , tagged                ^>=0.8.6
     , tasty
     , tasty-hunit
+    , terminal-effectful
     , text
 
   hs-source-dirs: test/functional
@@ -308,10 +307,11 @@ benchmark benchmarks
   other-modules:  Bench.Prelude
   build-depends:
     , base
-    , deepseq      >=1.4.4.0 && <1.6
-    , effects-fs
-    , env-guard    ^>=0.2
+    , deepseq             >=1.4.4.0 && <1.6
+    , env-guard           ^>=0.2
+    , fs-effectful
     , shrun
-    , tasty-bench  >=0.3     && <0.5
+    , tasty-bench         >=0.3     && <0.5
+    , terminal-effectful
 
   hs-source-dirs: benchmarks

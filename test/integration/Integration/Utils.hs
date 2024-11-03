@@ -4,9 +4,7 @@
 
 module Integration.Utils
   ( -- * Running
-    ConfigIO (..),
     runConfigIO,
-    NoConfigIO (..),
     runNoConfigIO,
 
     -- * Assertions
@@ -36,14 +34,16 @@ import DBus.Client
   )
 import Data.Sequence.NonEmpty qualified as NESeq
 import Data.Text qualified as T
-import Effects.FileSystem.PathReader
-  ( MonadPathReader
-      ( getHomeDirectory,
-        getXdgDirectory
+import Effectful.FileSystem.PathReader.Dynamic
+  ( PathReader
+      ( DoesDirectoryExist,
+        DoesFileExist,
+        GetFileSize,
+        GetXdgDirectory
       ),
   )
-import Effects.System.Terminal
-  ( MonadTerminal (getChar, getTerminalSize),
+import Effectful.Terminal.Dynamic
+  ( Terminal (GetTerminalSize, PutStrLn),
     Window (Window),
   )
 import Integration.Prelude as X
@@ -51,120 +51,144 @@ import Shrun.Configuration.Data.MergedConfig (MergedConfig, defaultMergedConfig)
 import Shrun.Configuration.Data.Notify.System (NotifySystemMerged)
 import Shrun.Configuration.Data.Notify.System qualified as Notify.System
 import Shrun.Configuration.Env qualified as Env
-import Shrun.Notify.DBus (MonadDBus (connectSession, notify))
+import Shrun.Notify.DBus (DBus (ConnectSession, Notify))
+
+{- ORMOLU_DISABLE -}
 
 -- IO that has a default config file specified at test/unit/Unit/toml/config.toml
-newtype ConfigIO a = MkConfigIO (ReaderT (IORef (List Text)) IO a)
-  deriving
-    ( Applicative,
-      Functor,
-      Monad,
-      MonadCatch,
-      MonadEnv,
-      MonadFileReader,
-      MonadFileWriter,
-      MonadHandleWriter,
-      MonadIO,
-      MonadMask,
-      MonadOptparse,
-      MonadPathWriter,
-      MonadIORef,
-      MonadReader (IORef (List Text)),
-      MonadSTM,
-      MonadThrow
-    )
-    via (ReaderT (IORef (List Text))) IO
-
-runConfigIO :: ConfigIO a -> IORef (List Text) -> IO a
-runConfigIO (MkConfigIO rdr) = runReaderT rdr
-
--- HACK: Listing all the MonadPathReader methods is tedious and unnecessary,
--- so rather than list all of them like @foo = error "todo"@, we simply
--- disable the warning with -Wno-missing-methods
-
-instance MonadPathReader ConfigIO where
-  getFileSize = liftIO . getFileSize
-  doesFileExist = liftIO . doesFileExist
-  doesDirectoryExist = liftIO . doesDirectoryExist
-
+runPathReaderConfig :: (IOE :> es) => Eff (PathReader : es) a -> Eff es a
+runPathReaderConfig = reinterpret runPathReader $ \_ -> \case
+  GetFileSize p -> getFileSize p
+  DoesFileExist p -> doesFileExist p
+  DoesDirectoryExist p -> doesDirectoryExist p
 #if OSX
-  getXdgDirectory _ _ =
-    pure (unsafeEncode $ concatDirs ["test", "integration", "toml", "osx"])
+  GetXdgDirectory _ _ -> pure [ospPathSep|test/integration/toml/osx|]
 #else
-  getXdgDirectory _ _ =
-    pure (unsafeEncode $ concatDirs ["test", "integration", "toml"])
+  GetXdgDirectory _ _ -> pure [ospPathSep|test/integration/toml|]
 #endif
+  _ -> unimplWith "runPathReaderConfig"
 
-instance MonadTerminal ConfigIO where
-  putStr = error "putStr: unimplemented"
+{- ORMOLU_ENABLE -}
 
-  -- capture logs
-  putStrLn t = ask >>= (`modifyIORef'` (T.pack t :))
+runTerminalConfig ::
+  ( IORefE :> es,
+    Reader (IORef [Text]) :> es
+  ) =>
+  Eff (Terminal : es) a ->
+  Eff es a
+runTerminalConfig = interpret_ $ \case
+  PutStrLn t -> do
+    logsRef <- ask
+    modifyIORef' logsRef (T.pack t :)
+  GetTerminalSize -> pure (Window 23 87)
+  _ -> unimplWith "runTerminalConfig"
 
-  getChar = error "getChar: unimplemented"
-
-  -- hardcoded so we can test 'detect'
-  getTerminalSize = pure (Window 23 87)
-
-instance MonadDBus ConfigIO where
-  connectSession =
+runDBusConfig :: Eff (DBus : es) a -> Eff es a
+runDBusConfig = interpret_ $ \case
+  ConnectSession ->
     pure
       $ Client
-        { clientSocket = error "todo",
-          clientPendingCalls = error "todo",
-          clientSignalHandlers = error "todo",
-          clientObjects = error "todo",
-          clientThreadID = error "todo",
-          clientInterfaces = error "todo"
+        { clientSocket = unimpl,
+          clientPendingCalls = unimpl,
+          clientSignalHandlers = unimpl,
+          clientObjects = unimpl,
+          clientThreadID = unimpl,
+          clientInterfaces = unimpl
         }
-  notify = error "notify: unimplemented"
+  Notify _ _ -> unimpl
 
--- IO with no default config file
-newtype NoConfigIO a = MkNoConfigIO (ReaderT (IORef (List Text)) IO a)
-  deriving
-    ( Applicative,
-      MonadPathWriter,
-      Functor,
-      Monad,
-      MonadCatch,
-      MonadEnv,
-      MonadFileReader,
-      MonadFileWriter,
-      MonadHandleWriter,
-      MonadIO,
-      MonadMask,
-      MonadOptparse,
-      MonadSTM,
-      MonadThrow
-    )
-    via (ReaderT (IORef (List Text))) IO
-  deriving (MonadDBus) via ConfigIO
+runConfigIO ::
+  (MonadIO m) =>
+  Eff
+    [ DBus,
+      FileReader,
+      FileWriter,
+      HandleWriter,
+      Optparse,
+      PathReader,
+      PathWriter,
+      Terminal,
+      Environment,
+      IORefE,
+      Reader (IORef (List Text)),
+      Concurrent,
+      IOE
+    ]
+    a ->
+  IORef [Text] ->
+  m a
+runConfigIO m ref =
+  liftIO
+    . runEff
+    . runConcurrent
+    . runReader ref
+    . runIORef
+    . runEnvironment
+    . runTerminalConfig
+    . runPathWriter
+    . runPathReaderConfig
+    . runOptparse
+    . runHandleWriter
+    . runFileWriter
+    . runFileReader
+    . runDBusConfig
+    $ m
 
-runNoConfigIO :: NoConfigIO a -> IORef (List Text) -> IO a
-runNoConfigIO (MkNoConfigIO rdr) = runReaderT rdr
+runNoConfigIO ::
+  Eff
+    [ DBus,
+      FileReader,
+      FileWriter,
+      HandleWriter,
+      Optparse,
+      PathReader,
+      PathWriter,
+      Terminal,
+      Environment,
+      IORefE,
+      Reader (IORef (List Text)),
+      Concurrent,
+      IOE
+    ]
+    a ->
+  IORef [Text] ->
+  IO a
+runNoConfigIO m ref =
+  runEff
+    . runConcurrent
+    . runReader ref
+    . runIORef
+    . runEnvironment
+    . runTerminalConfig
+    . runPathWriter
+    . runPathReaderNoConfig
+    . runOptparse
+    . runHandleWriter
+    . runFileWriter
+    . runFileReader
+    . runDBusConfig
+    $ m
 
-instance MonadPathReader NoConfigIO where
-  getXdgDirectory _ _ = pure [osp|./|]
-  getHomeDirectory = error "getHomeDirectory: unimplemented"
-  doesFileExist = liftIO . doesFileExist
-
-deriving via ConfigIO instance MonadTerminal NoConfigIO
+runPathReaderNoConfig :: (IOE :> es) => Eff (PathReader : es) a -> Eff es a
+runPathReaderNoConfig = reinterpret runPathReader $ \_ -> \case
+  DoesFileExist p -> doesFileExist p
+  GetXdgDirectory _ _ -> pure [osp|./|]
+  _ -> unimplWith "runPathReaderNoConfig"
 
 -- | Makes a 'MergedConfig' for the given monad and compares the result with
 -- the expectation.
 makeConfigAndAssertEq ::
-  forall m.
-  ( MonadEnv m,
-    MonadFileReader m,
-    MonadMask m,
-    MonadOptparse m,
-    MonadPathReader m,
-    MonadTerminal m
+  forall es.
+  ( Environment :> es,
+    FileReader :> es,
+    Optparse :> es,
+    PathReader :> es,
+    Terminal :> es
   ) =>
   -- | List of CLI arguments.
   List String ->
   -- | Natural transformation from m to IO.
-  (forall x. m x -> IO x) ->
+  (forall x. Eff es x -> IO x) ->
   -- | Expectation.
   MergedConfig ->
   PropertyT IO ()
@@ -198,18 +222,17 @@ infix 1 ^?=@
 
 -- | Like 'makeConfigAndAssertEq' except we only compare select fields.
 makeConfigAndAssertFieldEq ::
-  forall m.
-  ( MonadEnv m,
-    MonadFileReader m,
-    MonadMask m,
-    MonadOptparse m,
-    MonadPathReader m,
-    MonadTerminal m
+  forall es.
+  ( Environment :> es,
+    FileReader :> es,
+    Optparse :> es,
+    PathReader :> es,
+    Terminal :> es
   ) =>
   -- | List of CLI arguments.
   List String ->
   -- | Natural transformation from m to IO.
-  (forall x. m x -> IO x) ->
+  (forall x. Eff es x -> IO x) ->
   -- | List of expectations.
   List CompareField ->
   PropertyT IO ()
@@ -221,18 +244,17 @@ makeConfigAndAssertFieldEq args toIO comparisons = do
     MkCompareFieldMaybe l expected -> expected === result ^? l
 
 makeMergedConfig ::
-  forall m.
-  ( MonadEnv m,
-    MonadFileReader m,
-    MonadMask m,
-    MonadOptparse m,
-    MonadPathReader m,
-    MonadTerminal m
+  forall es.
+  ( Environment :> es,
+    FileReader :> es,
+    Optparse :> es,
+    PathReader :> es,
+    Terminal :> es
   ) =>
   -- | List of CLI arguments.
   List String ->
   -- | Natural transformation from m to IO.
-  (forall x. m x -> IO x) ->
+  (forall x. Eff es x -> IO x) ->
   PropertyT IO MergedConfig
 makeMergedConfig args toIO = do
   result <- liftIO $ toIO $ withArgs args Env.getMergedConfig

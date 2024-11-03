@@ -14,7 +14,7 @@
       - "Shrun.Configuration.Toml"
       - "Shrun.Data.Command"
       - "Shrun.Logging.Types"
-      - "Shrun.Notify.MonadNotify"
+      - "Shrun.Notify.Effect"
       - "Functional.Prelude"
       - "Functional.TestArgs"
       - "Integration.Prelude"

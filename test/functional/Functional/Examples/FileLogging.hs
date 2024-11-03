@@ -2,6 +2,7 @@
 
 module Functional.Examples.FileLogging (tests) where
 
+import Effectful.FileSystem.PathReader.Static qualified as PR
 import FileSystem.OsPath (unsafeEncode)
 import Functional.Prelude
 import Functional.TestArgs (TestArgs)
@@ -117,7 +118,7 @@ fileLogDeleteOnSuccess testArgs =
     ( \(resultsConsole, outFile) -> do
         V.verifyExpected resultsConsole expectedConsole
 
-        exists <- doesFileExist outFile
+        exists <- runFuncEff $ PR.doesFileExist outFile
 
         assertBool "File should not exist" (not exists)
     )
@@ -143,7 +144,7 @@ fileLogDeleteOnSuccessFail testArgs = testCase "Runs file-log-delete-on-success 
   resultsConsole <- runExitFailure args
   V.verifyExpected resultsConsole expectedConsole
 
-  exists <- doesFileExist outFile
+  exists <- runFuncEff $ PR.doesFileExist outFile
 
   assertBool "File should exist" exists
 
@@ -254,7 +255,7 @@ fileLogModeAppend testArgs =
 
         let log = mkLogPath tmpDir baseName rsType Nothing
 
-        exists <- doesFileExist log
+        exists <- runFuncEff $ PR.doesFileExist log
         assertBool ("File should exist: " <> decodeLenient log) exists
         resultsFile <- readLogFile log
         V.verifyExpected resultsFile expectedConsole
@@ -266,7 +267,7 @@ fileLogModeAppend testArgs =
             log3 = mkLogPath tmpDir baseName rsType (Just 2)
 
         for_ [log2, log3] $ \badLog -> do
-          badExists <- doesFileExist badLog
+          badExists <- runFuncEff $ PR.doesFileExist badLog
           assertBool ("File should not exist: " <> decodeLenient badLog) (not badExists)
     )
   where
@@ -307,7 +308,7 @@ fileLogModeRename testArgs =
             log3 = mkLogPath tmpDir baseName rsType (Just 2)
 
         for_ [log1, log2, log3] $ \log -> do
-          exists <- doesFileExist log
+          exists <- runFuncEff $ PR.doesFileExist log
           assertBool ("File should exist: " <> decodeLenient log) exists
 
           resultsFile <- readLogFile log
@@ -316,7 +317,7 @@ fileLogModeRename testArgs =
           3 @=? length resultsFile
 
         let badLog = mkLogPath tmpDir baseName rsType (Just 3)
-        exists <- doesFileExist badLog
+        exists <- runFuncEff $ PR.doesFileExist badLog
         assertBool ("File should not exist: " <> decodeLenient badLog) (not exists)
     )
   where
@@ -355,7 +356,7 @@ fileLogModeWrite testArgs =
 
         let log = mkLogPath tmpDir baseName rsType Nothing
 
-        exists <- doesFileExist log
+        exists <- runFuncEff $ PR.doesFileExist log
         assertBool ("File should exist: " <> decodeLenient log) exists
         resultsFile <- readLogFile log
         V.verifyExpected resultsFile expectedFile
@@ -366,7 +367,7 @@ fileLogModeWrite testArgs =
             log3 = mkLogPath tmpDir baseName rsType (Just 2)
 
         for_ [log2, log3] $ \badLog -> do
-          badExists <- doesFileExist badLog
+          badExists <- runFuncEff $ PR.doesFileExist badLog
           assertBool ("File should not exist: " <> decodeLenient badLog) (not badExists)
     )
   where

@@ -81,7 +81,6 @@ parseBufferLength getNat = do
   case convertIntegral n of
     Left err -> fail err
     Right x -> pure $ MkBufferLength x
-{-# INLINEABLE parseBufferLength #-}
 
 newtype BufferTimeout = MkBufferTimeout Timeout
   deriving stock (Eq, Show)
@@ -107,7 +106,6 @@ parseBufferTimeout ::
   f BufferTimeout
 parseBufferTimeout getNat getTxt =
   MkBufferTimeout <$> Timeout.parseTimeout getNat getTxt
-{-# INLINEABLE parseBufferTimeout #-}
 
 -- | Switch for logging read errors
 data ReportReadErrorsSwitch
@@ -287,14 +285,13 @@ defaultCommandLoggingMerged fileLogging cmds =
 
 -- | Merges args and toml configs.
 mergeCommandLogging ::
-  ( HasCallStack,
-    MonadThrow m
+  ( HasCallStack
   ) =>
   Bool ->
   NESeq CommandP1 ->
   CommandLoggingArgs ->
   Maybe CommandLoggingToml ->
-  m CommandLoggingMerged
+  Eff es CommandLoggingMerged
 mergeCommandLogging fileLogging cmds args mToml = do
   readStrategy <-
     guardReadStrategy

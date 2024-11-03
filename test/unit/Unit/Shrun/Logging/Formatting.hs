@@ -1,14 +1,13 @@
 -- | Tests for Shrun.Logging.Formatting.
 module Unit.Shrun.Logging.Formatting (tests) where
 
-import Data.Functor.Identity (Identity (Identity))
 import Data.List qualified as L
 import Data.Text qualified as T
 import Data.Time (midday)
 import Data.Time.LocalTime (utc)
-import Effects.Time
+import Effectful.Time.Dynamic
   ( LocalTime (LocalTime),
-    MonadTime (getMonotonicTime, getSystemZonedTime),
+    Time (GetMonotonicTime, GetSystemZonedTime),
     ZonedTime (ZonedTime),
   )
 import Shrun.Configuration.Data.CommonLogging.KeyHideSwitch
@@ -511,10 +510,10 @@ testFormatsFLLineTrunc = testCase desc $ do
 runFormatFileLog :: KeyHideSwitch -> FileLoggingEnv -> Log -> Text
 runFormatFileLog keyHide env log =
   view #unFileLog
-    $ Formatting.formatFileLog @MockTime keyHide env log
-    ^. #runMockTime
+    $ runMock
+    $ Formatting.formatFileLog keyHide env log
 
--- The mock time our 'MonadTime' returns. Needs to be kept in sync with
+-- The mock time our 'Time' returns. Needs to be kept in sync with
 -- getSystemZonedTime below.
 sysTime :: (IsString a) => a
 sysTime = "2020-05-31 12:00:00"
@@ -523,22 +522,13 @@ sysTime = "2020-05-31 12:00:00"
 sysTimeNE :: Text
 sysTimeNE = "[" <> sysTime <> "]"
 
-newtype MockEnv = MkMockEnv ()
+runMock :: Eff '[Time] a -> a
+runMock = runPureEff . runTimeMock
 
--- Monad with mock implementation for 'MonadTime'.
-newtype MockTime a = MkMockTime
-  { runMockTime :: a
-  }
-  deriving stock (Eq, Generic, Show)
-  deriving (Applicative, Functor, Monad) via Identity
-
-instance MonadTime MockTime where
-  getSystemZonedTime = pure $ ZonedTime (LocalTime (toEnum 59_000) midday) utc
-  getMonotonicTime = pure 0
-
-instance MonadReader MockEnv MockTime where
-  ask = pure $ MkMockEnv ()
-  local _ = id
+runTimeMock :: Eff (Time : es) a -> Eff es a
+runTimeMock = interpret_ $ \case
+  GetSystemZonedTime -> pure $ ZonedTime (LocalTime (toEnum 59_000) midday) utc
+  GetMonotonicTime -> pure 0
 
 baseFileLoggingEnv :: FileLoggingEnv
 baseFileLoggingEnv =

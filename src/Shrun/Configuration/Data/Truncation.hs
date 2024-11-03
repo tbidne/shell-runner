@@ -15,7 +15,7 @@ module Shrun.Configuration.Data.Truncation
   )
 where
 
-import Effects.System.Terminal (getTerminalWidth)
+import Effectful.Terminal.Dynamic (getTerminalWidth)
 import Shrun.Configuration.Data.WithDisabled
   ( WithDisabled
       ( Disabled,
@@ -58,7 +58,6 @@ parseTruncation getNat = do
   case convertIntegral n of
     Left err -> fail err
     Right x -> pure $ MkTruncation x
-{-# INLINEABLE parseTruncation #-}
 
 -- | Determines command log line truncation behavior. We need a separate
 -- type from 'Truncation' to add a third option, to detect the terminal size
@@ -81,7 +80,6 @@ parseLineTruncation getNat getTxt =
     <$> parseTruncation getNat
     -- NOTE: [Detect second parser]
     <|> parseDetected getTxt
-{-# INLINEABLE parseLineTruncation #-}
 
 -- Because this parser is used second, its error message is what will be
 -- displayed.
@@ -97,7 +95,6 @@ parseDetected getTxt =
           "line truncation"
           lineTruncStr
           (unpack bad)
-{-# INLINEABLE parseDetected #-}
 
 lineTruncStr :: String
 lineTruncStr = "(NATURAL | detect)"
@@ -111,10 +108,10 @@ decodeLineTrunc = getFieldOptWith tomlDecoder "line-trunc"
 -- | Maps line trunc config to actual value.
 configToLineTrunc ::
   ( HasCallStack,
-    MonadTerminal m
+    Terminal :> es
   ) =>
   WithDisabled LineTruncation ->
-  m (Maybe (Truncation TruncLine))
+  Eff es (Maybe (Truncation TruncLine))
 configToLineTrunc Disabled = pure Nothing
 configToLineTrunc Without = pure Nothing
 configToLineTrunc (With Detected) =
@@ -123,4 +120,3 @@ configToLineTrunc (With Detected) =
   -- to avoid multiple lines, hence the subtraction.
   Just . MkTruncation . (\x -> x - 1) <$> getTerminalWidth
 configToLineTrunc (With (Undetected x)) = pure $ Just x
-{-# INLINEABLE configToLineTrunc #-}

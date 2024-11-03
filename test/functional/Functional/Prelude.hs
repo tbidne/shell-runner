@@ -62,11 +62,17 @@ module Functional.Prelude
     scriptsHomeStr,
     notifySystemArg,
     readLogFile,
+    runFuncEff,
   )
 where
 
+import Data.IORef qualified as IORef
 import Data.Text qualified as T
 import Data.Typeable (typeRep)
+import Effectful.FileSystem.FileReader.Static qualified as FR
+import Effectful.FileSystem.PathReader.Static qualified as PR
+import Effectful.FileSystem.PathWriter.Static qualified as PW
+import Effectful.Terminal.Static qualified as Term
 import FileSystem.OsPath as X (combineFilePaths, unsafeDecode)
 import Functional.ReadStrategyTest
   ( ReadStrategyTestParams
@@ -90,18 +96,17 @@ import Shrun.Configuration.Env.Types
     HasNotifyConfig (getNotifyConfig),
     HasTimeout (getTimeout),
   )
-import Shrun.Logging.MonadRegionLogger
-  ( MonadRegionLogger
-      ( Region,
-        displayRegions,
-        logGlobal,
-        logRegion,
-        withRegion
+import Shrun.Logging.RegionLogger
+  ( RegionLogger
+      ( DisplayRegions,
+        LogGlobal,
+        LogRegion,
+        WithRegion
       ),
   )
-import Shrun.Notify.MonadNotify (MonadNotify (notify), ShrunNote)
+import Shrun.Notify.DBus (DBus, runDBus)
+import Shrun.Notify.Effect (Notify (Notify), ShrunNote)
 import Shrun.Prelude as X
-import Shrun.ShellT (ShellT)
 import Test.Shrun.Verifier (ResultText (MkResultText))
 import Test.Tasty as X
   ( TestTree,
@@ -200,24 +205,76 @@ instance HasFileLogging FuncEnv where
 instance HasNotifyConfig FuncEnv where
   getNotifyConfig = getNotifyConfig . view #coreEnv
 
-instance MonadRegionLogger (ShellT FuncEnv IO) where
-  type Region (ShellT FuncEnv IO) = ()
+runRegionLogger ::
+  ( r ~ (),
+    HasCallStack,
+    IOE :> es,
+    IORefE :> es,
+    Reader FuncEnv :> es
+  ) =>
+  Eff (RegionLogger r : es) a ->
+  Eff es a
+runRegionLogger = interpret $ \env -> \case
+  LogGlobal txt -> writeLogs txt
+  LogRegion _ _ txt -> writeLogs txt
+  WithRegion _ regionToShell -> localSeqUnliftIO env $ \unlift ->
+    unlift (regionToShell ())
+  DisplayRegions m -> localSeqUnliftIO env $ \unlift -> unlift m
+  where
+    writeLogs txt = do
+      ls <- asks @FuncEnv $ view #logs
+      modifyIORef' ls (txt :)
 
-  logGlobal txt = do
-    ls <- asks $ view #logs
-    liftIO $ modifyIORef' ls (txt :)
-
-  logRegion _ _ = logGlobal
-
-  withRegion _layout regionToShell = regionToShell ()
-
-  displayRegions = id
-
-instance MonadNotify (ShellT FuncEnv IO) where
-  notify note = do
-    notesRef <- asks (view #shrunNotes)
+runNotify ::
+  forall es a.
+  ( HasCallStack,
+    IORefE :> es,
+    Reader FuncEnv :> es
+  ) =>
+  Eff (Notify : es) a ->
+  Eff es a
+runNotify = interpret_ $ \case
+  Notify note -> do
+    notesRef <- asks @FuncEnv (view #shrunNotes)
     modifyIORef' notesRef (note :)
     pure Nothing
+
+runFuncIO ::
+  Eff
+    [ DBus,
+      Environment,
+      Terminal,
+      PathWriter,
+      PathReader,
+      HandleWriter,
+      HandleReader,
+      FileWriter,
+      FileReader,
+      Time,
+      Optparse,
+      IORefE,
+      TypedProcess,
+      Concurrent,
+      IOE
+    ]
+    a ->
+  IO a
+runFuncIO =
+  runEff
+    . runConcurrent
+    . runTypedProcess
+    . runIORef
+    . runOptparse
+    . runTime
+    . runFileReader
+    . runFileWriter
+    . runHandleReader
+    . runHandleWriter
+    . runPathReader
+    . runPathWriter
+    . runTerminal
+    . runEnvironment
+    . runDBus
 
 -- | Runs the args and retrieves the logs.
 run :: List String -> IO (List ResultText)
@@ -253,10 +310,11 @@ runMaybeException ::
   List String ->
   IO (List ResultText, List ShrunNote)
 runMaybeException mException argList = do
-  ls <- newIORef []
-  shrunNotes <- newIORef []
+  ls <- IORef.newIORef []
+  shrunNotes <- IORef.newIORef []
 
-  let action = do
+  let action :: IO ()
+      action = runFuncIO $ do
         withArgs argList $ Env.withEnv $ \env -> do
           let funcEnv =
                 MkFuncEnv
@@ -265,7 +323,10 @@ runMaybeException mException argList = do
                     shrunNotes
                   }
 
-          SR.runShellT SR.shrun funcEnv
+          runReader funcEnv
+            $ runRegionLogger
+            $ runNotify
+            $ SR.shrun @FuncEnv @()
 
   case mException of
     -- 1. Not expecting an exception
@@ -306,7 +367,7 @@ runMaybeException mException argList = do
       IORef (List Text) ->
       IORef (List ShrunNote) ->
       IO (List ResultText, List ShrunNote)
-    readRefs ls ns = ((,) . fmap MkResultText <$> readIORef ls) <*> readIORef ns
+    readRefs ls ns = ((,) . fmap MkResultText <$> IORef.readIORef ls) <*> IORef.readIORef ns
 
     printLogsReThrow :: (Exception e) => e -> IORef (List Text) -> IO void
     printLogsReThrow ex ls = do
@@ -316,13 +377,13 @@ runMaybeException mException argList = do
       throwM ex
 
     printLogs :: IORef (List Text) -> IO ()
-    printLogs ls = do
+    printLogs ls = runFuncEff $ do
       logs <- readIORef ls
 
-      putStrLn "\n*** LOGS ***\n"
+      Term.putStrLn "\n*** LOGS ***\n"
 
-      for_ logs (putStrLn . unpack)
-      putStrLn ""
+      for_ logs (Term.putStrLn . unpack)
+      Term.putStrLn ""
 
 commandPrefix :: (IsString s) => s
 commandPrefix = "[Command]"
@@ -389,11 +450,39 @@ notifySystemArg = "apple-script"
 notifySystemArg = "notify-send"
 #endif
 
+-- | General effects we use for test definition / setup. This should all be
+-- static since should be no mocking.
+runFuncEff ::
+  (HasCallStack, MonadIO m) =>
+  Eff
+    [ FR.FileReader,
+      FileWriter,
+      Term.Terminal,
+      PW.PathWriter,
+      PR.PathReader,
+      IORefE,
+      IOE
+    ]
+    a ->
+  m a
+runFuncEff =
+  liftIO
+    . runEff
+    . runIORef
+    . PR.runPathReader
+    . PW.runPathWriter
+    . Term.runTerminal
+    . runFileWriter
+    . runFileReader
+
 cfp :: FilePath -> FilePath -> FilePath
 cfp = combineFilePaths
 
 readLogFile :: OsPath -> IO (List ResultText)
-readLogFile path = fmap MkResultText . T.lines <$> readFileUtf8ThrowM path
+readLogFile path =
+  fmap MkResultText
+    . T.lines
+    <$> runFuncEff (readFileUtf8ThrowM path)
 
 appendScriptsHome :: (IsString a, Semigroup a) => a -> a
 appendScriptsHome p = scriptsHomeStr <> "/" <> p

@@ -21,8 +21,12 @@ ghc-options:
     -Wno-deprecations
     -Wno-unticked-promoted-constructors
 extra-deps:
+  - effectful-2.5.0.0@sha256:b6e421caf3cd70ab5cf837fc86a3c370240219ca73178629aee1dc7c31f3f219,7432
+  - effectful-core-2.5.0.0@sha256:a34cf1f3b33cf77314d54baec81b61b1c98c67dacb1123605fd7441943e2d904,4203
   - env-guard-0.2@sha256:99b89cde1ed6d599880dfbc72b2c9a75ced57b7800a70dcb57d3e3e89e42184c,1312
+  - strict-mutable-base-1.1.0.0@sha256:b1c039f6b179aedb420a90cbe15d3c3e78fbaaa7146ed02700b84c6018ee734f,1430
   - text-display-0.0.5.2@sha256:6e6a5bf1c83dfa6c34692ed5d8ea87f1bd385984309b42c302f2156f4d82477b,2670
+  - typed-process-effectful-1.0.0.3@sha256:83de77e159986022eea66b9fb20812f9de7b27c951cef4cee11608c6b24a80ee,2092
   - git: https://github.com/tbidne/algebra-simple.git
     commit: f8590486ec0fc66acf7db20308e1ed6993a52151
   - git: https://github.com/tbidne/bounds.git
@@ -31,20 +35,18 @@ extra-deps:
     commit: 9ecb81e4a16f62736dbe7f90cb1983e7212b0c0f
   - git: https://github.com/tbidne/fs-utils.git
     commit: 5406cea74491f382478e70734535c62fe6deef7d
-  - git: https://github.com/tbidne/monad-effects.git
-    commit: 7cc259bce3becc2c72bed1e8dd6f46ecc41efe70
+  - git: https://github.com/tbidne/effectful-libs.git
+    commit: 0ffc603026f6632a39deb84530612192c1247a1f
     subdirs:
-      - lib/effects-async
-      - lib/effects-env
-      - lib/effects-fs
-      - lib/effects-ioref
-      - lib/effects-optparse
-      - lib/effects-stm
-      - lib/effects-time
-      - lib/effects-terminal
-      - lib/effects-thread
-      - lib/effects-typed-process
-      - lib/effects-unix-compat
+      - lib/concurrent-effectful
+      - lib/environment-effectful
+      - lib/fs-effectful
+      - lib/ioref-effectful
+      - lib/optparse-effectful
+      - lib/stm-effectful
+      - lib/time-effectful
+      - lib/terminal-effectful
+      - lib/unix-compat-effectful
   - git: https://github.com/tbidne/relative-time.git
     commit: b3be9b3b904059671ef07dbcbb11b8c04d50ddde
   - git: https://github.com/tbidne/si-bytes.git

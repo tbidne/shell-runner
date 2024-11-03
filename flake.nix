@@ -31,8 +31,8 @@
       inputs.nix-hs-utils.follows = "nix-hs-utils";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    monad-effects = {
-      url = "github:tbidne/monad-effects";
+    effectful-libs = {
+      url = "github:tbidne/effectful-libs";
       inputs.flake-parts.follows = "flake-parts";
       inputs.nix-hs-utils.follows = "nix-hs-utils";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -41,7 +41,6 @@
       inputs.bounds.follows = "bounds";
       inputs.exception-utils.follows = "exception-utils";
       inputs.fs-utils.follows = "fs-utils";
-      inputs.smart-math.follows = "smart-math";
     };
     relative-time = {
       url = "github:tbidne/relative-time";
@@ -87,7 +86,36 @@
           compiler = pkgs.haskell.packages."${ghc-version}".override {
             overrides =
               final: prev:
-              { }
+              {
+                effectful-core = (
+                  final.callHackageDirect {
+                    pkg = "effectful-core";
+                    ver = "2.5.0.0";
+                    sha256 = "sha256-UCbMP8BfNfdIRTLzB4nBr17jxRp5Qmw3sTuORO06Npg=";
+                  } { }
+                );
+                effectful = (
+                  final.callHackageDirect {
+                    pkg = "effectful";
+                    ver = "2.5.0.0";
+                    sha256 = "sha256-lmM0kdM5PS45Jol5Y2Nw30VWWfDPiPJLrwVj+GmJSOQ=";
+                  } { }
+                );
+                strict-mutable-base = (
+                  final.callHackageDirect {
+                    pkg = "strict-mutable-base";
+                    ver = "1.1.0.0";
+                    sha256 = "sha256-cBSwoNGU/GZDW3eg7GI28t0HrrrxMW9hRapoOL2zU7Q=";
+                  } { }
+                );
+                typed-process-effectful = hlib.dontCheck (
+                  final.callHackageDirect {
+                    pkg = "typed-process-effectful";
+                    ver = "1.0.0.3";
+                    sha256 = "sha256-q7auI60lmW2X9PHCLPPVOqIfRXET1dAr8VHhCtmecYI=";
+                  } { }
+                );
+              }
               // nix-hs-utils.mkLibs inputs final [
                 "algebra-simple"
                 "bounds"
@@ -97,18 +125,16 @@
                 "si-bytes"
                 "smart-math"
               ]
-              // nix-hs-utils.mkRelLibs "${inputs.monad-effects}/lib" final [
-                "effects-async"
-                "effects-env"
-                "effects-fs"
-                "effects-ioref"
-                "effects-optparse"
-                "effects-stm"
-                "effects-terminal"
-                "effects-thread"
-                "effects-time"
-                "effects-typed-process"
-                "effects-unix-compat"
+              // nix-hs-utils.mkRelLibs "${inputs.effectful-libs}/lib" final [
+                "concurrent-effectful"
+                "environment-effectful"
+                "fs-effectful"
+                "ioref-effectful"
+                "optparse-effectful"
+                "stm-effectful"
+                "terminal-effectful"
+                "time-effectful"
+                "unix-compat-effectful"
               ];
           };
           hlib = pkgs.haskell.lib;

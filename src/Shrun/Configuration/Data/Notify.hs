@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Shrun.Configuration.Data.Notify
@@ -46,7 +47,7 @@ import Shrun.Configuration.Data.WithDisabled
   )
 import Shrun.Configuration.Data.WithDisabled qualified as WD
 import Shrun.Configuration.Default (Default, def)
-import Shrun.Notify.DBus (MonadDBus (connectSession))
+import Shrun.Notify.DBus (DBus, connectSession)
 import Shrun.Prelude
 
 -- See NOTE: [Args vs. Toml mandatory fields]
@@ -176,14 +177,15 @@ instance DecodeTOML NotifyToml where
       <*> getFieldOptWith tomlDecoder "system"
       <*> getFieldOptWith tomlDecoder "timeout"
 
-#if OSX
-
 toEnv ::
-  ( HasCallStack,
-    MonadThrow m
+  ( DBus :> es,
+    HasCallStack
   ) =>
   NotifyMerged ->
-  m NotifyEnv
+  Eff es NotifyEnv
+
+#if OSX
+
 toEnv notifyMerged = case systemMerged of
   DBus _ -> throwM OsxNotifySystemMismatchDBus
   NotifySend -> throwM OsxNotifySystemMismatchNotifySend
@@ -193,13 +195,6 @@ toEnv notifyMerged = case systemMerged of
 
 #else
 
-toEnv ::
-  ( HasCallStack,
-    MonadDBus m,
-    MonadThrow m
-  ) =>
-  NotifyMerged ->
-  m NotifyEnv
 toEnv notifyMerged = case systemMerged of
   AppleScript -> throwM LinuxNotifySystemMismatchAppleScript
   DBus _ -> mkNotify notifyMerged . DBus <$> connectSession
@@ -208,8 +203,6 @@ toEnv notifyMerged = case systemMerged of
     systemMerged = notifyMerged ^. #system
 
 #endif
-
-{-# INLINEABLE toEnv #-}
 
 mkNotify :: NotifyMerged -> NotifySystemEnv -> NotifyEnv
 mkNotify notifyToml systemP2 =

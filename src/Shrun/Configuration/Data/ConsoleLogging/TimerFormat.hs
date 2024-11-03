@@ -57,7 +57,6 @@ parseTimerFormat getTxt =
           "timer format"
           timerFormatStr
           (unpack bad)
-{-# INLINEABLE parseTimerFormat #-}
 
 -- | Available 'TimerFormat' strings.
 timerFormatStr :: (IsString a) => a

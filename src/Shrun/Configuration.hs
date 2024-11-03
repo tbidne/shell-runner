@@ -23,7 +23,7 @@ import Shrun.Prelude
 -- We want this function to do as much to prepare the final config as
 -- possible. For instance, in addition to filling in defaults, we also process
 -- commands via the legend (MonadThrow) and detect the terminal width for
--- command logging's lineTrunc field (MonadTerminal).
+-- command logging's lineTrunc field (Terminal).
 --
 -- This is very nearly pure, except for the aforementioned effects.
 -- The only remaining tasks the Env needs to take care of is IO that we
@@ -31,12 +31,11 @@ import Shrun.Prelude
 -- queues.
 mergeConfig ::
   ( HasCallStack,
-    MonadTerminal m,
-    MonadThrow m
+    Terminal :> es
   ) =>
   Args ->
   Maybe Toml ->
-  m MergedConfig
+  Eff es MergedConfig
 mergeConfig args mToml = do
   case mToml of
     Nothing -> do
@@ -75,4 +74,3 @@ mergeConfig args mToml = do
           }
   where
     cmdsText = args ^. #commands
-{-# INLINEABLE mergeConfig #-}
